@@ -8,4 +8,10 @@ export const auth = betterAuth({
     provider: "sqlite",
   }),
   plugins: [username(), admin(), jwt(), openAPI()],
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+  },
 });

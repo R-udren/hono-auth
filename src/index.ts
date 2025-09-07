@@ -1,10 +1,23 @@
 import { auth } from "@/auth";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 
 const app = new Hono();
 
+app.use(
+  "*", // or replace with "*" to enable cors for all routes
+  cors({
+    origin: "localhost:3000",
+    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["POST", "GET", "OPTIONS"],
+    exposeHeaders: ["Content-Length"],
+    maxAge: 600,
+    credentials: true,
+  })
+);
+
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
-  console.log("Accessing auth route: ", c.req.raw.url);
+  console.log(`Received request: ${c.req.method} ${c.req.url}`);
   return auth.handler(c.req.raw);
 });
 

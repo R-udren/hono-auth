@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1757231036890,
-      "tag": "0000_steady_wild_pack",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1757231822542,
-      "tag": "0001_far_magneto",
+      "when": 1757232114869,
+      "tag": "0000_aspiring_starfox",
       "breakpoints": true
     }
   ]
