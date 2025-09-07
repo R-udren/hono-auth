@@ -5,9 +5,9 @@ import { cors } from "hono/cors";
 const app = new Hono();
 
 app.use(
-  "*", // or replace with "*" to enable cors for all routes
+  "*",
   cors({
-    origin: "localhost:3000",
+    origin: "*",
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["POST", "GET", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
