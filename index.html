@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in</title>
+
+    <!-- Tailwind CDN (Play CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: "#eef2ff",
+                100: "#e0e7ff",
+                300: "#a5b4fc",
+                500: "#6366f1",
+                600: "#5457ee",
+                700: "#4f46e5",
+              },
+            },
+            boxShadow: {
+              glow: "0 0 0 1px rgba(99,102,241,.3), 0 8px 30px rgba(99,102,241,.15)",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      .glass {
+        background: color-mix(in oklab, white 8%, transparent);
+        backdrop-filter: blur(14px);
+      }
+      .ring-brand {
+        box-shadow: 0 0 0 1px color-mix(in oklab, #6366f1 50%, transparent);
+      }
+      .bg-noise {
+        background-image: radial-gradient(
+            60vmax 60vmax at 20% -10%,
+            rgba(99, 102, 241, 0.13),
+            transparent 60%
+          ),
+          radial-gradient(
+            50vmax 50vmax at 120% 10%,
+            rgba(56, 189, 248, 0.1),
+            transparent 60%
+          ),
+          radial-gradient(
+            40vmax 40vmax at -10% 120%,
+            rgba(168, 85, 247, 0.1),
+            transparent 60%
+          );
+      }
+      @keyframes floaty {
+        from {
+          transform: translateY(0);
+        }
+        to {
+          transform: translateY(-8px);
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="min-h-dvh bg-neutral-950 text-white antialiased selection:bg-brand-500/30"
+  >
+    <!-- Background -->
+    <div class="pointer-events-none fixed inset-0 bg-noise"></div>
+    <div
+      class="pointer-events-none fixed inset-0 opacity-[.07] [background-image:radial-gradient(#fff_1px,transparent_1px)] [background-size:14px_14px]"
+    ></div>
+
+    <main class="relative min-h-dvh grid place-items-center p-6">
+      <section
+        class="w-full max-w-md glass rounded-2xl border border-white/10 shadow-2xl ring-brand"
+      >
+        <div class="p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <div
+              class="size-10 grid place-items-center rounded-xl bg-brand-500/15 ring-1 ring-brand-500/40"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="size-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M3 7l9-4 9 4-9 4-9-4zm0 5l9 4 9-4m-9 4v7"
+                />
+              </svg>
+            </div>
+            <h1 class="text-2xl font-semibold tracking-tight">Welcome back</h1>
+          </div>
+
+          <p class="text-white/70 mb-8">Sign in to continue</p>
+
+          <!-- Google Sign-in -->
+          <button
+            id="google-btn"
+            class="group w-full inline-flex items-center justify-center gap-3 rounded-xl px-4 py-3 bg-white text-slate-900 font-medium ring-1 ring-black/10 hover:shadow-glow hover:bg-neutral-50 transition will-change-transform"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="size-5"
+              viewBox="0 0 48 48"
+              aria-hidden="true"
+            >
+              <path
+                fill="#FFC107"
+                d="M43.6 20.5H42V20H24v8h11.3C33.6 31.7 29.2 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 3l5.7-5.7C34 5.2 29.3 3 24 3 12.9 3 4 11.9 4 23s8.9 20 20 20c10 0 19-7.3 19-20 0-1.1-.1-2.1-.4-3z"
+              />
+              <path
+                fill="#FF3D00"
+                d="M6.3 14.7l6.6 4.8C14.5 16 19 12.9 24 12.9c3 0 5.7 1.1 7.8 3l5.7-5.7C34 5.2 29.3 3 24 3 16.1 3 9.4 7.5 6.3 14.7z"
+              />
+              <path
+                fill="#4CAF50"
+                d="M24 43c5.1 0 9.8-1.9 13.3-5.1l-6.1-5.2C29.1 34.1 26.7 35 24 35c-5.2 0-9.6-3.3-11.2-7.9l-6.5 5C9.3 38.5 16.1 43 24 43z"
+              />
+              <path
+                fill="#1976D2"
+                d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.2-3.5 5.6-6.3 6.8l6.1 5.2C37.3 37.9 41 31.9 41 24c0-1.1-.1-2.1-.4-3.5z"
+              />
+            </svg>
+            Continue with Google
+            <span
+              aria-hidden="true"
+              class="ml-auto opacity-0 group-hover:opacity-100 transition"
+              >→</span
+            >
+          </button>
+
+          <p id="error" class="hidden mt-4 text-sm text-red-300"></p>
+        </div>
+
+        <div
+          class="border-t border-white/10 bg-black/20 p-6 text-center text-sm text-white/60"
+        >
+          By continuing, you agree to our Terms and Privacy Policy.
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const API_BASE = "http://localhost:3000/api/auth";
+      const nextParam = new URLSearchParams(location.search).get("next");
+      const NEXT = nextParam || (location.origin ? location.origin + "/" : "/");
+
+      async function checkSession() {
+        try {
+          const res = await fetch(`${API_BASE}/session`, {
+            credentials: "include",
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.session) {
+              // User is logged in, redirect or show logged in state
+              console.log("User is logged in:", data.session);
+              // For now, redirect to a dashboard or home
+              location.href = "/dashboard";
+            }
+          }
+        } catch (e) {
+          console.log("No session or error:", e);
+        }
+      }
+
+      async function startGoogle() {
+        try {
+          const res = await fetch(`${API_BASE}/sign-in/social`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            // Better Auth social flow accepts provider and callback targets
+            body: JSON.stringify({
+              provider: "google",
+              callbackURL: NEXT,
+              errorCallbackURL: "/auth/error",
+              newUserCallbackURL: "http://localhost:5173",
+            }),
+          });
+
+          if (res.redirected) {
+            location.href = res.url;
+            return;
+          }
+          const data = await res.json().catch(() => null);
+          if (data?.url) {
+            location.href = data.url;
+            return;
+          }
+          throw new Error("Unexpected response");
+        } catch (e) {
+          const el = document.getElementById("error");
+          el.textContent = "Could not start Google sign-in. Please try again.";
+          el.classList.remove("hidden");
+        }
+      }
+
+      // Check session on page load
+      checkSession();
+
+      document.getElementById("google-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        startGoogle();
+      });
+    </script>
+  </body>
+</html>
