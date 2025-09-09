@@ -8,7 +8,9 @@
     "db:generate": "bun drizzle-kit generate",
     "db:migrate": "bun drizzle-kit migrate",
     "db:push": "bun drizzle-kit push",
-    "db:studio": "bun drizzle-kit studio"
+    "db:studio": "bun drizzle-kit studio",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix"
   },
   "dependencies": {
     "@libsql/client": "^0.15.14",
@@ -17,7 +19,10 @@
     "hono": "^4.9.6"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "^5.3.0",
     "drizzle-kit": "^0.31.4",
+    "eslint": "^9.35.0",
+    "eslint-plugin-format": "^1.0.1",
     "wrangler": "^4.4.0"
   }
 }

@@ -1,11 +1,11 @@
-import { db } from "@/lib/db";
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { admin, bearer, jwt, openAPI, username } from "better-auth/plugins";
+import { betterAuth } from 'better-auth'
+import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { admin, bearer, jwt, openAPI, username } from 'better-auth/plugins'
+import { db } from '@/lib/db'
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
-    provider: "sqlite",
+    provider: 'sqlite',
   }),
 
   plugins: [username(), admin(), bearer(), jwt(), openAPI()],
@@ -17,5 +17,5 @@ export const auth = betterAuth({
     },
   },
 
-  trustedOrigins: process.env.ORIGINS!.split(","),
-});
+  trustedOrigins: process.env.ORIGINS!.split(','),
+})

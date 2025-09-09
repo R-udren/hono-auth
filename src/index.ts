@@ -1,24 +1,23 @@
-import { auth } from "@/lib/auth";
-import { Hono } from "hono";
-import { cors } from "hono/cors";
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { auth } from '@/lib/auth'
 
-const app = new Hono();
+const app = new Hono()
 
 app.use(
-  "*",
+  '*',
   cors({
-    origin: process.env.ORIGINS?.split(",") || [],
-    allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["POST", "GET", "OPTIONS"],
-    exposeHeaders: ["Content-Length"],
+    origin: process.env.ORIGINS?.split(',') || [],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    allowMethods: ['POST', 'GET', 'OPTIONS'],
+    exposeHeaders: ['Content-Length'],
     maxAge: 600,
     credentials: true,
-  })
-);
+  }),
+)
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => {
-  console.log(`Received request: ${c.req.method} ${c.req.url}`);
-  return auth.handler(c.req.raw);
-});
+app.on(['POST', 'GET'], '/api/auth/*', (c) => {
+  return auth.handler(c.req.raw)
+})
 
-export default app;
+export default app
