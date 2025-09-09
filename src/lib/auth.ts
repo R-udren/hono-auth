@@ -9,6 +9,10 @@ export const auth = betterAuth({
 		provider: "sqlite",
 	}),
 
+	emailAndPassword: {
+		enabled: true,
+	},
+
 	plugins: [username(), admin(), bearer(), jwt(), openAPI()],
 
 	socialProviders: {
