@@ -1,6 +1,22 @@
-import antfu from '@antfu/eslint-config'
+// @ts-check
+import antfu from "@antfu/eslint-config"
 
 export default antfu({
-  formatters: true,
-  rules: { 'node/prefer-global/process': 'off' },
+	type: "lib",
+	typescript: true,
+	formatters: true,
+	lessOpinionated: true,
+	stylistic: {
+		indent: "tab",
+		quotes: "double",
+	},
+}, {
+	rules: {
+		"func-style": ["error", "expression"],
+		"node/prefer-global/process": "off",
+		"ts/explicit-function-return-type": ["off"],
+		"perfectionist/sort-imports": ["error", {
+			tsconfigRootDir: ".",
+		}],
+	},
 })
