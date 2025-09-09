@@ -2,8 +2,11 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 
 import { auth } from "@/lib/auth"
+import notFound from "@/middleware/not-founds"
 
 const app = new Hono()
+
+app.notFound(notFound)
 
 app.use(
 	"*",
