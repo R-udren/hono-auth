@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json bun.lock ./
 
-# Install only production dependencies to reduce image size
-RUN bun install --frozen-lockfile --production
+# Install dependencies
+RUN bun install --frozen-lockfile
 
 # Copy source code and environment file
 COPY . .
