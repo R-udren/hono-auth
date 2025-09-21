@@ -16,10 +16,10 @@ const app = new Hono<{
 app.use(pinoLogger({
 	pino: pino({
 		base: null,
-		level: "trace",
-		transport: {
-			target: "hono-pino/debug-log",
-		},
+		level: "info",
+		transport: process.env.NODE_ENV === "development"
+			? { target: "hono-pino/debug-log" }
+			: undefined,
 		timestamp: pino.stdTimeFunctions.unixTime,
 	}),
 }))
