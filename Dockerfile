@@ -7,7 +7,7 @@ WORKDIR /app
 # Copy package files
 COPY package.json bun.lock ./
 
-# Install dependencies
+# Install dependencies (including dev deps for migration tools)
 RUN bun install --frozen-lockfile
 
 # Copy source code and environment file

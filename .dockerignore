@@ -6,5 +6,4 @@ README.md
 .nyc_output
 coverage
 .wrangler
-drizzle/
 *.log
