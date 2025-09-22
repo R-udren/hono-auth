@@ -13,7 +13,17 @@ export const auth = betterAuth({
 		enabled: true,
 	},
 
-	plugins: [username(), admin(), bearer(), jwt(), openAPI()],
+	plugins: [username(), admin(), bearer(), jwt({
+		jwt: {
+			definePayload: ({ user }) => {
+				return {
+					name: user.name,
+					email: user.email,
+					role: user.role,
+				}
+			},
+		},
+	}), openAPI()],
 
 	socialProviders: {
 		google: {
