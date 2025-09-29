@@ -13,9 +13,6 @@ RUN bun install --frozen-lockfile
 # Copy source code and environment file
 COPY . .
 
-# Run database migrations (ensure DATABASE_URL is set)
-RUN bun run db:migrate
-
 # Expose port
 EXPOSE 3000
 
