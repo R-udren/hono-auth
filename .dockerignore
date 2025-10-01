@@ -1,9 +1,54 @@
-node_modules
-npm-debug.log
-.git
+# Dependencies
+node_modules/
+bun.lockb
+
+# Environment files - CRITICAL: Never include in image
+.env
+.env.*
+!.env.example
+
+# Version control
+.git/
 .gitignore
-README.md
-.nyc_output
-coverage
-.wrangler
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
 *.log
+*.pid
+*.seed
+
+# Testing
+coverage/
+.nyc_output/
+.wrangler/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Misc
+tmp/
+temp/

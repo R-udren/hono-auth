@@ -1,4 +1,3 @@
-import { betterAuth } from "better-auth"
 import { Hono } from "hono"
 import { pinoLogger } from "hono-pino"
 import { cors } from "hono/cors"
@@ -41,6 +40,12 @@ app.use(
 		credentials: true,
 	}),
 )
+
+app.get("/", (c) => {
+	return c.json({
+		message: "healthy",
+	})
+})
 
 app.get("/session", (c) => {
 	const session = c.get("session")
