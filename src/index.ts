@@ -30,6 +30,28 @@ const logger = pino({
 		],
 		censor: "[REDACTED]",
 	},
+	// Handle circular references in serialization
+	serializers: {
+		res: (res) => {
+			// Only log essential response info, avoid circular refs
+			return {
+				statusCode: res.statusCode,
+				headers: {
+					...res.headers,
+					"set-cookie": "[REDACTED]",
+				},
+			}
+		},
+		req: req => ({
+			method: req.method,
+			url: req.url,
+			headers: {
+				...req.headers,
+				cookie: "[REDACTED]",
+				authorization: "[REDACTED]",
+			},
+		}),
+	},
 	transport: process.env.NODE_ENV === "development"
 		? { target: "hono-pino/debug-log" }
 		: undefined,
