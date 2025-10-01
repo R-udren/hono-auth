@@ -6,7 +6,7 @@ import pino from "pino"
 
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { account } from "@/lib/db/auth-schema"
+import { account, user } from "@/lib/db/auth-schema"
 import { notFound, onError } from "@/middleware"
 
 const app = new Hono<{
@@ -19,6 +19,17 @@ const app = new Hono<{
 const logger = pino({
 	base: null,
 	level: "info",
+	// Redact sensitive information from all logs
+	redact: {
+		paths: [
+			"req.headers.cookie",
+			"req.headers.authorization",
+			"res.headers.set-cookie",
+			"*.cookie",
+			"*.authorization",
+		],
+		censor: "[REDACTED]",
+	},
 	transport: process.env.NODE_ENV === "development"
 		? { target: "hono-pino/debug-log" }
 		: undefined,
@@ -70,20 +81,44 @@ app.get("/session", async (c) => {
 		throw err
 	}
 
+	// Fetch complete user data with custom fields
+	const userData = await db
+		.select({
+			id: user.id,
+			name: user.name,
+			email: user.email,
+			image: user.image,
+			username: user.username,
+			displayUsername: user.displayUsername,
+			role: user.role,
+		})
+		.from(user)
+		.where(eq(user.id, session.user.id))
+		.limit(1)
+
+	if (!userData.length) {
+		const err = new Error("User not found")
+		// @ts-expect-error fucking hono types
+		err.status = 404
+		throw err
+	}
+
 	// Fetch user's accounts (only public fields)
 	const userAccounts = await db
 		.select({
-			id: account.id,
 			accountId: account.accountId,
 			providerId: account.providerId,
-			createdAt: account.createdAt,
 		})
 		.from(account)
 		.where(eq(account.userId, session.user.id))
 
 	return c.json({
-		session: session.session,
-		user: session.user,
+		session: {
+			userAgent: session.session.userAgent,
+			expiresAt: session.session.expiresAt,
+			createdAt: session.session.createdAt,
+		},
+		user: userData[0],
 		accounts: userAccounts,
 	})
 })
