@@ -2,11 +2,11 @@ import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { pinoLogger } from "hono-pino"
 import { cors } from "hono/cors"
-import pino from "pino"
 
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { account, user } from "@/lib/db/auth-schema"
+import { logger } from "@/lib/logger"
 import { notFound, onError } from "@/middleware"
 
 const app = new Hono<{
@@ -15,46 +15,6 @@ const app = new Hono<{
 		session: typeof auth.$Infer.Session.session | null
 	}
 }>()
-
-const logger = pino({
-	base: null,
-	level: "info",
-	// Redact sensitive information from all logs
-	redact: {
-		paths: [
-			"req.headers.cookie",
-			"req.headers.authorization",
-			"res.headers.set-cookie",
-			"*.cookie",
-			"*.authorization",
-		],
-		censor: "[REDACTED]",
-	},
-	// Handle circular references in serialization
-	serializers: {
-		res: res => ({
-			statusCode: res.statusCode,
-		}),
-		req: (req) => {
-			const headers = { ...req.headers }
-			if (headers.cookie) {
-				headers.cookie = "[REDACTED]"
-			}
-			if (headers.authorization) {
-				headers.authorization = "[REDACTED]"
-			}
-			return {
-				method: req.method,
-				url: req.url,
-				headers,
-			}
-		},
-	},
-	transport: process.env.NODE_ENV === "development"
-		? { target: "hono-pino/debug-log" }
-		: undefined,
-	timestamp: pino.stdTimeFunctions.unixTime,
-})
 
 app.use(pinoLogger({
 	pino: logger,

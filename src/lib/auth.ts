@@ -3,10 +3,10 @@ import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { admin, bearer, jwt, openAPI, username } from "better-auth/plugins"
-import pino from "pino"
 import { uuidv7 } from "uuidv7"
 
 import { db } from "@/lib/db"
+import { logger } from "@/lib/logger"
 
 export const auth = betterAuth<BetterAuthOptions>({
 	database: drizzleAdapter(db, {
@@ -78,11 +78,6 @@ export const auth = betterAuth<BetterAuthOptions>({
 	logger: {
 		level: "info",
 		log: (level, message, ...args) => {
-			const logger = pino({
-				base: null,
-				level: "info",
-				timestamp: pino.stdTimeFunctions.unixTime,
-			})
 			logger[level](message, ...args)
 		},
 	},
