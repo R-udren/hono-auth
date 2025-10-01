@@ -14,7 +14,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 	}),
 
 	emailAndPassword: {
-		enabled: true,
+		enabled: process.env.EMAIL_PASSWORD_AUTH === "true",
 	},
 
 	user: {
