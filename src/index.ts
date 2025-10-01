@@ -34,9 +34,6 @@ const logger = pino({
 	serializers: {
 		res: res => ({
 			statusCode: res.statusCode,
-			headers: res.headers?.["set-cookie"]
-				? { ...res.headers, "set-cookie": "[REDACTED]" }
-				: res.headers,
 		}),
 		req: (req) => {
 			const headers = { ...req.headers }
