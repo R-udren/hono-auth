@@ -3,8 +3,6 @@
 	"type": "module",
 	"scripts": {
 		"dev": "bun run --hot src/index.ts",
-		"deploy": "wrangler deploy --minify",
-		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
 		"db:generate": "bun drizzle-kit generate",
 		"db:migrate": "bun drizzle-kit migrate",
 		"db:push": "bun drizzle-kit push",
@@ -18,14 +16,14 @@
 		"hono": "^4.9.6",
 		"hono-pino": "^0.10.2",
 		"pg": "^8.16.3",
-		"pino": "^9.9.4"
+		"pino": "^9.9.4",
+		"uuidv7": "^1.0.2"
 	},
 	"devDependencies": {
 		"@antfu/eslint-config": "^5.3.0",
 		"@types/pg": "^8.15.5",
 		"drizzle-kit": "^0.31.5",
 		"eslint": "^9.35.0",
-		"eslint-plugin-format": "^1.0.1",
-		"wrangler": "^4.4.0"
+		"eslint-plugin-format": "^1.0.1"
 	}
 }

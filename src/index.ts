@@ -1,3 +1,4 @@
+import { betterAuth } from "better-auth"
 import { Hono } from "hono"
 import { pinoLogger } from "hono-pino"
 import { cors } from "hono/cors"
@@ -13,15 +14,17 @@ const app = new Hono<{
 	}
 }>()
 
+const logger = pino({
+	base: null,
+	level: "info",
+	transport: process.env.NODE_ENV === "development"
+		? { target: "hono-pino/debug-log" }
+		: undefined,
+	timestamp: pino.stdTimeFunctions.unixTime,
+})
+
 app.use(pinoLogger({
-	pino: pino({
-		base: null,
-		level: "info",
-		transport: process.env.NODE_ENV === "development"
-			? { target: "hono-pino/debug-log" }
-			: undefined,
-		timestamp: pino.stdTimeFunctions.unixTime,
-	}),
+	pino: logger,
 }))
 
 app.notFound(notFound)
