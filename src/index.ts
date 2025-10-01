@@ -32,9 +32,17 @@ app.onError(onError)
 app.use(
 	"*",
 	cors({
-		origin: process.env.ORIGINS?.split(",") || [],
+		origin: (origin) => {
+			// Allow requests with no origin (mobile apps, etc.)
+			if (!origin) {
+				return null
+			}
+
+			const allowedOrigins = process.env.ORIGINS?.split(",") || []
+			return allowedOrigins.includes(origin) ? origin : null
+		},
 		allowHeaders: ["Content-Type", "Authorization"],
-		allowMethods: ["POST", "GET", "OPTIONS"],
+		allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],
 		exposeHeaders: ["Content-Length"],
 		maxAge: 600,
 		credentials: true,
@@ -47,11 +55,12 @@ app.get("/", (c) => {
 	})
 })
 
-app.get("/session", (c) => {
-	const session = c.get("session")
-	const user = c.get("user")
+app.get("/session", async (c) => {
+	const session = await auth.api.getSession({
+		headers: c.req.raw.headers,
+	})
 
-	if (!user) {
+	if (!session) {
 		const err = new Error("Unauthorized")
 		// @ts-expect-error fucking hono types
 		err.status = 401
@@ -59,8 +68,8 @@ app.get("/session", (c) => {
 	}
 
 	return c.json({
-		session,
-		user,
+		session: session.session,
+		user: session.user,
 	})
 })
 

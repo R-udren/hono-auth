@@ -63,6 +63,9 @@ export const auth = betterAuth<BetterAuthOptions>({
 		database: {
 			generateId: () => uuidv7(),
 		},
+		ipAddress: {
+			ipAddressHeaders: ["cf-connecting-ip", "x-real-ip", "x-client-ip", "x-forwarded-for"],
+		},
 	},
 
 	rateLimit: {

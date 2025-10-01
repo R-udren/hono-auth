@@ -10,6 +10,9 @@ export default antfu({
 		indent: "tab",
 		quotes: "double",
 	},
+	ignores: [
+		"drizzle/**",
+	],
 }, {
 	rules: {
 		"func-style": ["error", "expression"],
