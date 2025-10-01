@@ -1,9 +1,12 @@
+import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { pinoLogger } from "hono-pino"
 import { cors } from "hono/cors"
 import pino from "pino"
 
 import { auth } from "@/lib/auth"
+import { db } from "@/lib/db"
+import { account } from "@/lib/db/auth-schema"
 import { notFound, onError } from "@/middleware"
 
 const app = new Hono<{
@@ -67,9 +70,21 @@ app.get("/session", async (c) => {
 		throw err
 	}
 
+	// Fetch user's accounts (only public fields)
+	const userAccounts = await db
+		.select({
+			id: account.id,
+			accountId: account.accountId,
+			providerId: account.providerId,
+			createdAt: account.createdAt,
+		})
+		.from(account)
+		.where(eq(account.userId, session.user.id))
+
 	return c.json({
 		session: session.session,
 		user: session.user,
+		accounts: userAccounts,
 	})
 })
 
