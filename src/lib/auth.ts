@@ -6,7 +6,24 @@ import { admin, bearer, jwt, openAPI, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
 
 import { db } from "@/lib/db"
+import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
+
+const socialProviders: BetterAuthOptions["socialProviders"] = {}
+
+if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
+	socialProviders.google = {
+		clientId: env.GOOGLE_CLIENT_ID,
+		clientSecret: env.GOOGLE_CLIENT_SECRET,
+	}
+}
+
+if (env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET) {
+	socialProviders.discord = {
+		clientId: env.DISCORD_CLIENT_ID,
+		clientSecret: env.DISCORD_CLIENT_SECRET,
+	}
+}
 
 export const auth = betterAuth<BetterAuthOptions>({
 	database: drizzleAdapter(db, {
@@ -14,7 +31,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 	}),
 
 	emailAndPassword: {
-		enabled: process.env.EMAIL_PASSWORD_AUTH === "true",
+		enabled: env.EMAIL_PASSWORD_AUTH === "true",
 	},
 
 	user: {
@@ -35,16 +52,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 		},
 	}), openAPI()],
 
-	socialProviders: {
-		google: {
-			clientId: process.env.GOOGLE_CLIENT_ID!,
-			clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-		},
-		discord: {
-			clientId: process.env.DISCORD_CLIENT_ID!,
-			clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-		},
-	},
+	socialProviders,
 
 	account: {
 		accountLinking: {
@@ -58,7 +66,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 	advanced: {
 		crossSubDomainCookies: {
 			enabled: true,
-			domain: process.env.COOKIE_DOMAIN!,
+			domain: env.COOKIE_DOMAIN,
 		},
 		database: {
 			generateId: () => uuidv7(),
@@ -82,5 +90,5 @@ export const auth = betterAuth<BetterAuthOptions>({
 		},
 	},
 
-	trustedOrigins: process.env.ORIGINS!.split(","),
+	trustedOrigins: env.ORIGINS.split(","),
 })

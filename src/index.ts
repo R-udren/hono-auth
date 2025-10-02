@@ -6,6 +6,7 @@ import { cors } from "hono/cors"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { account, user } from "@/lib/db/auth-schema"
+import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
 import { notFound, onError } from "@/middleware"
 
@@ -32,7 +33,7 @@ app.use(
 				return null
 			}
 
-			const allowedOrigins = process.env.ORIGINS?.split(",") || []
+			const allowedOrigins = env.ORIGINS.split(",")
 			return allowedOrigins.includes(origin) ? origin : null
 		},
 		allowHeaders: ["Content-Type", "Authorization"],

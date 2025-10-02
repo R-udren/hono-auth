@@ -1,5 +1,7 @@
 import pino from "pino"
 
+import { env } from "@/lib/env"
+
 export const logger = pino({
 	base: null,
 	level: "info",
@@ -40,7 +42,7 @@ export const logger = pino({
 			return { level: label }
 		},
 	},
-	transport: process.env.NODE_ENV === "development"
+	transport: env.NODE_ENV === "development"
 		? { target: "hono-pino/debug-log" }
 		: undefined,
 	timestamp: pino.stdTimeFunctions.unixTime,

@@ -1,6 +1,8 @@
 import type { ErrorHandler } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 
+import { env } from "@/lib/env"
+
 const INTERNAL_SERVER_ERROR = 500
 
 const onError: ErrorHandler = (err, c) => {
@@ -13,12 +15,12 @@ const onError: ErrorHandler = (err, c) => {
 		statusCode = c.newResponse(null).status as ContentfulStatusCode
 	}
 
-	const env = c.env?.NODE_ENV || process.env?.NODE_ENV
+	const nodeEnv = c.env?.NODE_ENV || env.NODE_ENV
 	return c.json(
 		{
 			message: err.message,
 			status: statusCode,
-			stack: env === "production" ? undefined : err.stack,
+			stack: nodeEnv === "production" ? undefined : err.stack,
 		},
 		statusCode,
 	)
