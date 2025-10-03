@@ -56,7 +56,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 
 	account: {
 		accountLinking: {
-			enabled: false,
+			enabled: env.LINK_ACCOUNTS === "true",
 			trustedProviders: [],
 			allowDifferentEmails: false,
 			updateUserInfoOnLink: false,

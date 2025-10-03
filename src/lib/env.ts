@@ -13,6 +13,7 @@ const envSchema = z.object({
 	COOKIE_DOMAIN: z.string().default("app.example.com"),
 	NODE_ENV: z.enum(["development", "production"]).default("development"),
 	EMAIL_PASSWORD_AUTH: z.string().default("true"),
+	LINK_ACCOUNTS: z.string().default("true"),
 })
 
 export const env = envSchema.parse(process.env)
