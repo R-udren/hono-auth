@@ -30,6 +30,13 @@ export const auth = betterAuth<BetterAuthOptions>({
 		provider: "pg",
 	}),
 
+	session: {
+		cookieCache: {
+			enabled: true,
+			maxAge: 5 * 60, // Cache duration in seconds
+		},
+	},
+
 	emailAndPassword: {
 		enabled: env.EMAIL_PASSWORD_AUTH === "true",
 	},
@@ -79,7 +86,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 	rateLimit: {
 		enabled: true,
 		window: 60, // 1 minute
-		max: 50,
+		max: 30,
 		storage: "memory",
 	},
 
