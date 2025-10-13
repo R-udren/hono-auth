@@ -2,7 +2,7 @@ import type { BetterAuthOptions } from "better-auth"
 
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { admin, bearer, jwt, openAPI, username } from "better-auth/plugins"
+import { admin, jwt, openAPI, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
 
 import { db } from "@/lib/db"
@@ -47,7 +47,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 		},
 	},
 
-	plugins: [username(), admin(), bearer(), jwt({
+	plugins: [username(), admin(), jwt({
 		jwt: {
 			definePayload: ({ user }) => {
 				return {
@@ -56,6 +56,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 					role: user.role,
 				}
 			},
+			expirationTime: "1h",
 		},
 	}), openAPI()],
 
