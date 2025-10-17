@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { pinoLogger } from "hono-pino"
 import { cors } from "hono/cors"
+import { HTTPException } from "hono/http-exception"
 
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
@@ -56,10 +57,10 @@ app.get("/session", async (c) => {
 	})
 
 	if (!session) {
-		const err = new Error("Unauthorized")
-		// @ts-expect-error fucking hono types
-		err.status = 401
-		throw err
+		throw new HTTPException(401, {
+			message: "No active session",
+			cause: "Unauthorized",
+		})
 	}
 
 	// Fetch complete user data with custom fields
@@ -78,10 +79,9 @@ app.get("/session", async (c) => {
 		.limit(1)
 
 	if (!userData.length) {
-		const err = new Error("User not found")
-		// @ts-expect-error fucking hono types
-		err.status = 404
-		throw err
+		throw new HTTPException(404, {
+			message: "No user found",
+		})
 	}
 
 	// Fetch user's accounts (only public fields)
