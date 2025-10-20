@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { pinoLogger } from "hono-pino"
 import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
+import { createRemoteJWKSet, jwtVerify } from "jose"
 
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
@@ -51,14 +52,46 @@ app.get("/", (c) => {
 	})
 })
 
-app.get("/session", async (c) => {
+app.get("/me", async (c) => {
+	let userId: string | null = null
+
+	// Try to get session from better-auth
 	const session = await auth.api.getSession({
 		headers: c.req.raw.headers,
 	})
 
-	if (!session) {
+	if (session) {
+		userId = session.user.id
+	}
+	else {
+		// Check for JWT in Authorization header
+		const authHeader = c.req.header("authorization")
+		if (authHeader && authHeader.startsWith("Bearer ")) {
+			const token = authHeader.slice(7)
+			logger.debug("Verifying JWT token")
+			try {
+				const baseUrl = env.BETTER_AUTH_URL
+				const jwksSet = createRemoteJWKSet(
+					new URL(`${baseUrl}/api/auth/jwks`),
+				)
+				const { payload } = await jwtVerify(token, jwksSet, {
+					issuer: baseUrl,
+					audience: baseUrl,
+				})
+				userId = payload.sub as string
+				logger.debug("JWT validation successful")
+			}
+			catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error)
+				const tokenPreview = `${token.slice(0, 20)}...`
+				logger.warn({ error: errorMessage, tokenPreview }, "JWT token validation failed")
+			}
+		}
+	}
+
+	if (!userId) {
 		throw new HTTPException(401, {
-			message: "No active session",
+			message: "No active session or valid JWT",
 			cause: "Unauthorized",
 		})
 	}
@@ -75,7 +108,7 @@ app.get("/session", async (c) => {
 			role: user.role,
 		})
 		.from(user)
-		.where(eq(user.id, session.user.id))
+		.where(eq(user.id, userId))
 		.limit(1)
 
 	if (!userData.length) {
@@ -91,17 +124,24 @@ app.get("/session", async (c) => {
 			providerId: account.providerId,
 		})
 		.from(account)
-		.where(eq(account.userId, session.user.id))
+		.where(eq(account.userId, userId))
 
-	return c.json({
-		session: {
+	const response: Record<string, unknown> = {
+		user: userData[0],
+		accounts: userAccounts,
+	}
+
+	// Only include session if it exists
+	if (session) {
+		response.session = {
 			userAgent: session.session.userAgent,
 			expiresAt: session.session.expiresAt,
 			createdAt: session.session.createdAt,
-		},
-		user: userData[0],
-		accounts: userAccounts,
-	})
+			ipAddress: session.session.ipAddress,
+		}
+	}
+
+	return c.json(response)
 })
 
 app.on(["POST", "GET"], "/api/auth/*", (c) => {
