@@ -5,6 +5,7 @@
 		"dev": "bun run --hot src/index.ts",
 		"db:generate": "bun drizzle-kit generate",
 		"db:migrate": "bun drizzle-kit migrate",
+		"db:migrate:azure": "bun src/lib/db/migrate.ts",
 		"db:push": "bun drizzle-kit push",
 		"db:studio": "bun drizzle-kit studio",
 		"lint": "eslint",

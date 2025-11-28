@@ -8,9 +8,14 @@ import { createRemoteJWKSet, jwtVerify } from "jose"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { account, user } from "@/lib/db/auth-schema"
+import { runMigrations } from "@/lib/db/migrate"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
 import { notFound, onError } from "@/middleware"
+
+// Run migrations on startup
+// eslint-disable-next-line antfu/no-top-level-await
+await runMigrations()
 
 const app = new Hono<{
 	Variables: {

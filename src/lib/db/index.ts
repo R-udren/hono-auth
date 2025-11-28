@@ -12,7 +12,9 @@ const AZURE_POSTGRESQL_SCOPE = "https://ossrdbms-aad.database.windows.net/.defau
  * Returns a function that fetches a fresh token on each call.
  */
 const createAzurePasswordProvider = (): (() => Promise<string>) => {
-	const credential = new DefaultAzureCredential()
+	const credential = new DefaultAzureCredential({
+		managedIdentityClientId: env.AZURE_CLIENT_ID,
+	})
 
 	return async () => {
 		const token = await credential.getToken(AZURE_POSTGRESQL_SCOPE)
@@ -22,16 +24,13 @@ const createAzurePasswordProvider = (): (() => Promise<string>) => {
 
 /**
  * Parses DATABASE_URL and returns pg.PoolConfig with Azure MI support.
+ *
+ * DATABASE_URL format: postgresql://host:port/database
+ * - In Azure: user/password ignored, Entra token used instead
+ * - Locally: use full connection string with credentials
  */
 const getPoolConfig = (): pg.PoolConfig => {
-	const url = new URL(env.DATABASE_URL!)
-
-	// Base config from URL
-	const config: pg.PoolConfig = {
-		host: url.hostname,
-		port: Number(url.port) || 5432,
-		database: url.pathname.slice(1),
-	}
+	const url = new URL(env.DATABASE_URL)
 
 	if (env.AZURE_CLOUD) {
 		// Azure Managed Identity authentication
@@ -40,21 +39,22 @@ const getPoolConfig = (): pg.PoolConfig => {
 		}
 
 		return {
-			...config,
+			host: url.hostname,
+			port: Number(url.port) || 5432,
+			database: url.pathname.slice(1),
 			user: env.AZURE_CLIENT_ID,
 			password: createAzurePasswordProvider(),
 			ssl: { rejectUnauthorized: false },
 		}
 	}
 
-	// Local development - use full connection string
 	return { connectionString: env.DATABASE_URL }
 }
 
 // Lazy initialization
 let pool: pg.Pool | null = null
 
-const getPool = (): pg.Pool => {
+export const getPool = (): pg.Pool => {
 	if (!pool) {
 		pool = new pg.Pool(getPoolConfig())
 	}

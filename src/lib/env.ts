@@ -3,8 +3,9 @@ import { z } from "zod"
 const envSchema = z.object({
 	// Azure configuration
 	AZURE_CLOUD: z
-		.boolean()
-		.default(false),
+		.string()
+		.default("false")
+		.transform(v => v === "true"),
 	AZURE_CLIENT_ID: z.string().optional(),
 
 	// Auth configuration
@@ -18,8 +19,8 @@ const envSchema = z.object({
 	DISCORD_CLIENT_ID: z.string().optional(),
 	DISCORD_CLIENT_SECRET: z.string().optional(),
 
-	// Database (optional if using Azure)
-	DATABASE_URL: z.url("DATABASE_URL must be a valid URL").optional(),
+	// Database
+	DATABASE_URL: z.url("DATABASE_URL must be a valid URL"),
 
 	// App configuration
 	ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000,http://localhost:3001"),
