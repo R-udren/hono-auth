@@ -5,54 +5,63 @@ import pg from "pg"
 import { env } from "../env"
 import * as schema from "./schema"
 
-const AZURE_POSTGRESQL_SCOPE
-	= "https://ossrdbms-aad.database.windows.net/.default"
+const AZURE_POSTGRESQL_SCOPE = "https://ossrdbms-aad.database.windows.net/.default"
 
-const createPool = async (): Promise<pg.Pool> => {
-	// If running in Azure, use Managed Identity
-	if (process.env.AZURE_CLOUD === "true") {
-		const credential = new DefaultAzureCredential()
-		const url = new URL(env.DATABASE_URL)
+/**
+ * Creates a password provider for Azure Managed Identity authentication.
+ * Returns a function that fetches a fresh token on each call.
+ */
+const createAzurePasswordProvider = (): (() => Promise<string>) => {
+	const credential = new DefaultAzureCredential()
 
-		const pool = new pg.Pool({
-			host: url.hostname,
-			port: Number(url.port) || 5432,
-			database: url.pathname.slice(1),
-			user: process.env.AZURE_CLIENT_ID, // UAI client ID
-			ssl: { rejectUnauthorized: false },
-		})
-
-		// Override getConnection to refresh token
-		const originalConnect = pool.connect.bind(pool)
-		pool.connect = async () => {
-			const token = await credential.getToken(AZURE_POSTGRESQL_SCOPE);
-			(pool as unknown as { options: { password: string } }).options.password
-				= token.token
-			return originalConnect()
-		}
-
-		return pool
+	return async () => {
+		const token = await credential.getToken(AZURE_POSTGRESQL_SCOPE)
+		return token.token
 	}
-
-	// use connection string from env
-	return new pg.Pool({ connectionString: env.DATABASE_URL })
 }
 
+/**
+ * Parses DATABASE_URL and returns pg.PoolConfig with Azure MI support.
+ */
+const getPoolConfig = (): pg.PoolConfig => {
+	const url = new URL(env.DATABASE_URL!)
+
+	// Base config from URL
+	const config: pg.PoolConfig = {
+		host: url.hostname,
+		port: Number(url.port) || 5432,
+		database: url.pathname.slice(1),
+	}
+
+	if (env.AZURE_CLOUD) {
+		// Azure Managed Identity authentication
+		if (!env.AZURE_CLIENT_ID) {
+			throw new Error("AZURE_CLIENT_ID is required when running in Azure")
+		}
+
+		return {
+			...config,
+			user: env.AZURE_CLIENT_ID,
+			password: createAzurePasswordProvider(),
+			ssl: { rejectUnauthorized: false },
+		}
+	}
+
+	// Local development - use full connection string
+	return { connectionString: env.DATABASE_URL }
+}
+
+// Lazy initialization
 let pool: pg.Pool | null = null
 
-const getPool = async (): Promise<pg.Pool> => {
+const getPool = (): pg.Pool => {
 	if (!pool) {
-		pool = await createPool()
+		pool = new pg.Pool(getPoolConfig())
 	}
 	return pool
 }
 
 export const db = drizzle({
-	client: {
-		query: async (sql: string, params?: unknown[]) => {
-			const p = await getPool()
-			return p.query(sql, params)
-		},
-	} as pg.Pool,
+	client: getPool(),
 	schema,
 })
