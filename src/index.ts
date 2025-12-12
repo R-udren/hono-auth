@@ -153,4 +153,7 @@ app.on(["POST", "GET"], "/api/auth/*", (c) => {
 	return auth.handler(c.req.raw)
 })
 
-export default app
+export default {
+	port: 4000,
+	fetch: app.fetch,
+}

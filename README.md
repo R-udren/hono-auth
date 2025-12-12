@@ -175,7 +175,7 @@ Build and run with Docker:
 
 ```bash
 docker build -t hono-auth .
-docker run -p 3000:3000 --env-file .env hono-auth
+docker run -p 4000:4000 --env-file .env hono-auth
 ```
 
 ## Security Features

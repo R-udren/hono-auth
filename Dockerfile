@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1.3-alpine AS builder
+FROM oven/bun:alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN bun build src/index.ts --target=bun --outdir=dist
 
 # Production stage
-FROM oven/bun:1.3-alpine AS production
+FROM oven/bun:alpine AS production
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
@@ -46,14 +46,14 @@ COPY --from=builder --chown=bunuser:nodejs /app/tsconfig.json ./
 USER bunuser
 
 # Expose port
-EXPOSE 3000
+EXPOSE 4000
 
 # Set environment to production
 ENV NODE_ENV=production
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD bun run -e 'fetch("http://localhost:3000/").then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))'
+    CMD bun run -e 'fetch("http://localhost:4000/").then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))'
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
