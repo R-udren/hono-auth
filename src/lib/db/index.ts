@@ -23,32 +23,24 @@ const createAzurePasswordProvider = (): (() => Promise<string>) => {
 }
 
 /**
- * Parses DATABASE_URL and returns pg.PoolConfig with Azure MI support.
- *
- * DATABASE_URL format: postgresql://host:port/database
- * - In Azure: user/password ignored, Entra token used instead
- * - Locally: use full connection string with credentials
+ * Returns pg.PoolConfig.
+ * - In Azure: use Managed Identity + AZURE_PG_* env vars
+ * - Locally: use DATABASE_URL connection string
  */
 const getPoolConfig = (): pg.PoolConfig => {
-	const url = new URL(env.DATABASE_URL)
-
 	if (env.AZURE_CLOUD) {
 		// Azure Managed Identity authentication
-		if (!env.AZURE_CLIENT_ID) {
-			throw new Error("AZURE_CLIENT_ID is required when running in Azure")
-		}
-
 		return {
-			host: url.hostname,
-			port: Number(url.port) || 5432,
-			database: url.pathname.slice(1),
+			host: env.AZURE_PG_HOST!,
+			port: env.AZURE_PG_PORT ?? 5432,
+			database: env.AZURE_PG_DATABASE!,
 			user: env.AZURE_CLIENT_ID,
 			password: createAzurePasswordProvider(),
 			ssl: { rejectUnauthorized: false },
 		}
 	}
 
-	return { connectionString: env.DATABASE_URL }
+	return { connectionString: env.DATABASE_URL! }
 }
 
 // Lazy initialization

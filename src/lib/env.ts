@@ -1,12 +1,17 @@
 import { z } from "zod"
 
-const envSchema = z.object({
+const baseEnvSchema = z.object({
 	// Azure configuration
 	AZURE_CLOUD: z
 		.string()
 		.default("false")
 		.transform(v => v === "true"),
 	AZURE_CLIENT_ID: z.string().optional(),
+
+	// Azure PostgreSQL (used when AZURE_CLOUD=true)
+	AZURE_PG_HOST: z.string().optional(),
+	AZURE_PG_PORT: z.coerce.number().int().positive().optional(),
+	AZURE_PG_DATABASE: z.string().optional(),
 
 	// Auth configuration
 	BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET is required"),
@@ -20,7 +25,7 @@ const envSchema = z.object({
 	DISCORD_CLIENT_SECRET: z.string().optional(),
 
 	// Database
-	DATABASE_URL: z.url("DATABASE_URL must be a valid URL"),
+	DATABASE_URL: z.url("DATABASE_URL must be a valid URL").optional(),
 
 	// App configuration
 	ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000,http://localhost:3001"),
@@ -28,6 +33,41 @@ const envSchema = z.object({
 	NODE_ENV: z.enum(["development", "production"]).default("development"),
 	EMAIL_PASSWORD_AUTH: z.string().default("true"),
 	LINK_ACCOUNTS: z.string().default("true"),
+})
+
+const envSchema = baseEnvSchema.superRefine((data, ctx) => {
+	if (data.AZURE_CLOUD) {
+		if (!data.AZURE_CLIENT_ID) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["AZURE_CLIENT_ID"],
+				message: "AZURE_CLIENT_ID is required when running in Azure",
+			})
+		}
+		if (!data.AZURE_PG_HOST) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["AZURE_PG_HOST"],
+				message: "AZURE_PG_HOST is required when running in Azure",
+			})
+		}
+		if (!data.AZURE_PG_DATABASE) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["AZURE_PG_DATABASE"],
+				message: "AZURE_PG_DATABASE is required when running in Azure",
+			})
+		}
+	}
+	else {
+		if (!data.DATABASE_URL) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["DATABASE_URL"],
+				message: "DATABASE_URL is required when not running in Azure",
+			})
+		}
+	}
 })
 
 export const env = envSchema.parse(process.env)

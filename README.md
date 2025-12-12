@@ -50,6 +50,13 @@ Create a `.env` file in the root directory:
 # Database
 DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 
+# Azure Database (when AZURE_CLOUD=true)
+AZURE_CLOUD=true
+AZURE_CLIENT_ID=your_managed_identity_client_id
+AZURE_PG_HOST=your-server.postgres.database.azure.com
+AZURE_PG_PORT=5432
+AZURE_PG_DATABASE=auth-db
+
 # CORS Origins (comma-separated)
 ORIGINS=http://localhost:3000,http://localhost:5173
 
