@@ -5,36 +5,15 @@ import { env } from "@/lib/env"
 export const logger = pino({
 	base: null,
 	level: "info",
-	// Redact sensitive information from all logs
-	redact: {
-		paths: [
-			"req.headers.cookie",
-			"req.headers.authorization",
-			"res.headers.set-cookie",
-			"*.cookie",
-			"*.authorization",
-		],
-		censor: "[REDACTED]",
-	},
-	// Handle circular references in serialization
 	serializers: {
 		res: res => ({
-			statusCode: res.statusCode,
+			status: res.status,
 		}),
-		req: (req) => {
-			const headers = { ...req.headers }
-			if (headers.cookie) {
-				headers.cookie = "[REDACTED]"
-			}
-			if (headers.authorization) {
-				headers.authorization = "[REDACTED]"
-			}
-			return {
-				method: req.method,
-				url: req.url,
-				headers,
-			}
-		},
+		req: req => ({
+			method: req.method,
+			url: req.url,
+			userAgent: req.headers["user-agent"],
+		}),
 	},
 	// Format level as string instead of number
 	formatters: {
