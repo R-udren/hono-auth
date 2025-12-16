@@ -165,7 +165,11 @@ app.on(["POST", "GET"], "/api/auth/*", (c) => {
 	return auth.handler(c.req.raw)
 })
 
+logger.info(`Starting server on port 3000...`)
+
 export default {
 	port: 3000,
 	fetch: app.fetch,
 }
+
+logger.info(`Access interactive documentation at "${env.BETTER_AUTH_URL}/api/auth/reference"`)
