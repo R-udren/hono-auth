@@ -14,8 +14,11 @@ import { logger } from "@/lib/logger"
 import { notFound, onError } from "@/middleware"
 
 // Run migrations on startup
-// eslint-disable-next-line antfu/no-top-level-await
-await runMigrations()
+(async () => {
+	if (env.RUN_MIGRATIONS) {
+		await runMigrations()
+	}
+})()
 
 const app = new Hono<{
 	Variables: {

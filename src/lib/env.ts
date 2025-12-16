@@ -26,6 +26,10 @@ const baseEnvSchema = z.object({
 
 	// Database
 	DATABASE_URL: z.url("DATABASE_URL must be a valid URL").optional(),
+	RUN_MIGRATIONS: z
+		.string()
+		.default("false")
+		.transform(v => v === "true"),
 
 	// App configuration
 	ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
