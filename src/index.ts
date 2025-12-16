@@ -16,7 +16,7 @@ import { notFound, onError } from "@/middleware"
 // Run migrations on startup, if enabled
 (async () => {
 	if (env.RUN_MIGRATIONS) {
-		logger.info("Database migrations enabled, running migrations...")
+		logger.info("env `RUN_MIGRATIONS` enabled, running migrations...")
 		try {
 			await runMigrations()
 		}
@@ -25,7 +25,7 @@ import { notFound, onError } from "@/middleware"
 		}
 	}
 	else {
-		logger.info("Database migrations disabled, skipping migrations")
+		logger.info("env `RUN_MIGRATIONS` disabled, skipping migrations...")
 	}
 })()
 
