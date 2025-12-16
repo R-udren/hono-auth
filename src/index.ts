@@ -13,10 +13,19 @@ import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
 import { notFound, onError } from "@/middleware"
 
-// Run migrations on startup
+// Run migrations on startup, if enabled
 (async () => {
 	if (env.RUN_MIGRATIONS) {
-		await runMigrations()
+		logger.info("Database migrations enabled, running migrations...")
+		try {
+			await runMigrations()
+		}
+		catch (error) {
+			logger.error(`Error running migrations: ${error}`)
+		}
+	}
+	else {
+		logger.info("Database migrations disabled, skipping migrations")
 	}
 })()
 
