@@ -172,4 +172,4 @@ export default {
 	fetch: app.fetch,
 }
 
-logger.info(`Access interactive documentation at "${env.BETTER_AUTH_URL}/api/auth/reference"`)
+logger.info(`Access interactive documentation at ${env.BETTER_AUTH_URL}/api/auth/reference`)
