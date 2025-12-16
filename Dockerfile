@@ -43,13 +43,13 @@ COPY --from=builder --chown=bunuser:nodejs /prod ./
 # Switch to non-root user
 USER bunuser
 
-EXPOSE 4000
+EXPOSE 3000
 
 ENV NODE_ENV=production
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD bun run -e 'fetch("http://localhost:4000/").then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))'
+    CMD bun run -e 'fetch("http://localhost:3000/").then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))'
 
 ENTRYPOINT ["dumb-init", "--"]
 

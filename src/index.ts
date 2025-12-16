@@ -154,6 +154,6 @@ app.on(["POST", "GET"], "/api/auth/*", (c) => {
 })
 
 export default {
-	port: 4000,
+	port: 3000,
 	fetch: app.fetch,
 }
