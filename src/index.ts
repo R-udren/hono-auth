@@ -165,7 +165,7 @@ app.on(["POST", "GET"], "/api/auth/*", (c) => {
 	return auth.handler(c.req.raw)
 })
 
-logger.info(`Starting server on port 3000...`)
+logger.info(`Starting server...`)
 
 export default {
 	port: 3000,

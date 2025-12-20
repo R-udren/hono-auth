@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "4000:3000"
+    environment:
+      # Azure configuration (Defaults to false)
+      - AZURE_CLOUD=false
+      # - AZURE_CLIENT_ID=
+      # - AZURE_PG_HOST=
+      # - AZURE_PG_PORT=
+      # - AZURE_PG_DATABASE=
+
+      # Auth configuration
+      - BETTER_AUTH_SECRET=991d8f1b6955e45dd7c071e24cdc17fa1567a49b06c796dcddced000528f713f
+      - BETTER_AUTH_URL=http://localhost:4000
+      - BETTER_AUTH_TELEMETRY=0
+
+      # OAuth providers
+      - GOOGLE_CLIENT_ID=
+      - GOOGLE_CLIENT_SECRET=
+      - DISCORD_CLIENT_ID=
+      - DISCORD_CLIENT_SECRET=
+
+      # Database
+      # Connect to the postgres service defined below
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/better_auth
+      - RUN_MIGRATIONS=true
+
+      # App configuration
+      - ORIGINS=http://localhost:5173,http://localhost:3000
+      - COOKIE_DOMAIN=localhost
+      - NODE_ENV=development
+      - EMAIL_PASSWORD_AUTH=true
+      - LINK_ACCOUNTS=true
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=better_auth
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

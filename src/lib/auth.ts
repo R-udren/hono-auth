@@ -69,7 +69,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 			allowDifferentEmails: false,
 			updateUserInfoOnLink: false,
 		},
-		skipStateCookieCheck: true,
+		skipStateCookieCheck: false, // TODO: should not be enabled in production
 	},
 
 	advanced: {
