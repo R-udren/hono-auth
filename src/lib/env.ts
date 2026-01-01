@@ -14,7 +14,12 @@ const baseEnvSchema = z.object({
 	AZURE_PG_DATABASE: z.string().optional(),
 
 	// Auth configuration
-	BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET is required and must be at least 32 characters long"),
+	BETTER_AUTH_SECRET: z
+		.string()
+		.min(
+			32,
+			"BETTER_AUTH_SECRET is required and must be at least 32 characters long",
+		),
 	BETTER_AUTH_URL: z.url().default("http://localhost:3000"),
 	BETTER_AUTH_TELEMETRY: z.string().default("0"),
 
@@ -37,6 +42,7 @@ const baseEnvSchema = z.object({
 	NODE_ENV: z.enum(["development", "production"]).default("development"),
 	EMAIL_PASSWORD_AUTH: z.string().default("true"),
 	LINK_ACCOUNTS: z.string().default("true"),
+	TOKEN_EXPIRATION_HOURS: z.coerce.number().int().positive().default(4),
 })
 
 const envSchema = baseEnvSchema.superRefine((data, ctx) => {

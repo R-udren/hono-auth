@@ -47,18 +47,23 @@ export const auth = betterAuth<BetterAuthOptions>({
 		},
 	},
 
-	plugins: [username(), admin(), jwt({
-		jwt: {
-			definePayload: ({ user }) => {
-				return {
-					name: user.name,
-					email: user.email,
-					role: user.role,
-				}
+	plugins: [
+		username(),
+		admin(),
+		jwt({
+			jwt: {
+				definePayload: ({ user }) => {
+					return {
+						name: user.name,
+						email: user.email,
+						role: user.role,
+					}
+				},
+				expirationTime: `${env.TOKEN_EXPIRATION_HOURS}h`,
 			},
-			expirationTime: "1h",
-		},
-	}), openAPI()],
+		}),
+		openAPI(),
+	],
 
 	socialProviders,
 
@@ -81,7 +86,12 @@ export const auth = betterAuth<BetterAuthOptions>({
 			generateId: () => uuidv7(),
 		},
 		ipAddress: {
-			ipAddressHeaders: ["cf-connecting-ip", "x-real-ip", "x-client-ip", "x-forwarded-for"],
+			ipAddressHeaders: [
+				"cf-connecting-ip",
+				"x-real-ip",
+				"x-client-ip",
+				"x-forwarded-for",
+			],
 		},
 	},
 
