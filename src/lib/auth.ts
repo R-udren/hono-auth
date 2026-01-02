@@ -53,11 +53,17 @@ export const auth = betterAuth<BetterAuthOptions>({
 		jwt({
 			jwt: {
 				definePayload: ({ user }) => {
-					return {
+					const payload = {
 						name: user.name,
 						email: user.email,
 						role: user.role,
 					}
+
+					if (!user.emailVerified) {
+						return { ...payload, verified: false }
+					}
+
+					return payload
 				},
 				expirationTime: `${env.TOKEN_EXPIRATION_HOURS}h`,
 			},
