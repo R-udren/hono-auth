@@ -38,6 +38,17 @@ const app = new Hono<{
 
 app.use(pinoLogger({
 	pino: logger,
+	http: {
+		onReqBindings: c => ({
+			ip: c.req.header("cf-connecting-ip") || c.req.header("x-real-ip") || c.req.header("x-client-ip") || c.req.header("x-forwarded-for"),
+			userAgent: c.req.header("user-agent"),
+			req: {
+				url: c.req.path,
+				method: c.req.method,
+				headers: c.req.header(),
+			},
+		}),
+	},
 }))
 
 app.notFound(notFound)
@@ -161,7 +172,11 @@ app.get("/me", async (c) => {
 	return c.json(response)
 })
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => {
+app.all("/api/auth/*", (c) => {
+	logger.info({
+		method: c.req.method,
+		path: c.req.path,
+	}, "Better Auth Request")
 	return auth.handler(c.req.raw)
 })
 

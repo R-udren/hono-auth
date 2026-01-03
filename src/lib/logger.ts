@@ -9,10 +9,11 @@ export const logger = pino({
 		res: res => ({
 			status: res.status,
 		}),
-		req: req => ({
+		req: (req: any) => ({
 			method: req.method,
 			url: req.url,
 			userAgent: req.headers["user-agent"],
+			ip: req.headers["cf-connecting-ip"] || req.headers["x-real-ip"] || req.headers["x-client-ip"] || req.headers["x-forwarded-for"] || req.remoteAddress,
 		}),
 	},
 	// Format level as string instead of number
