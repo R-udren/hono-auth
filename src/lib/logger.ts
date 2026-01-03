@@ -12,8 +12,8 @@ export const logger = pino({
 		req: (req: any) => ({
 			method: req.method,
 			url: req.url,
-			userAgent: req.headers["user-agent"],
-			ip: req.headers["cf-connecting-ip"] || req.headers["x-real-ip"] || req.headers["x-client-ip"] || req.headers["x-forwarded-for"] || req.remoteAddress,
+			// userAgent: req.headers["user-agent"],
+			// ip: req.headers["cf-connecting-ip"] || req.headers["x-real-ip"] || req.headers["x-client-ip"] || req.headers["x-forwarded-for"] || req.remoteAddress,
 		}),
 	},
 	// Format level as string instead of number

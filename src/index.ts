@@ -173,10 +173,6 @@ app.get("/me", async (c) => {
 })
 
 app.all("/api/auth/*", (c) => {
-	logger.info({
-		method: c.req.method,
-		path: c.req.path,
-	}, "Better Auth Request")
 	return auth.handler(c.req.raw)
 })
 
