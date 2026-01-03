@@ -39,15 +39,18 @@ const app = new Hono<{
 app.use(pinoLogger({
 	pino: logger,
 	http: {
-		onReqBindings: c => ({
-			ip: c.req.header("cf-connecting-ip") || c.req.header("x-real-ip") || c.req.header("x-client-ip") || c.req.header("x-forwarded-for"),
-			userAgent: c.req.header("user-agent"),
-			req: {
-				url: c.req.path,
-				method: c.req.method,
-				headers: c.req.header(),
-			},
-		}),
+		onReqBindings: (c) => {
+			const userAgent = c.req.header("user-agent")
+			const ip = c.req.header("cf-connecting-ip")
+				|| c.req.header("x-real-ip")
+				|| c.req.header("x-client-ip")
+				|| c.req.header("x-forwarded-for")
+
+			return {
+				ip,
+				userAgent,
+			}
+		},
 	},
 }))
 
