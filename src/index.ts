@@ -175,8 +175,12 @@ app.get("/me", async (c) => {
 	return c.json(response)
 })
 
-app.all("/api/auth/*", (c) => {
-	return auth.handler(c.req.raw)
+app.all("/api/auth/*", async (c) => {
+	const res = await auth.handler(c.req.raw)
+	if (c.req.path.endsWith("/jwks")) {
+		res.headers.set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400")
+	}
+	return res
 })
 
 logger.info(`Starting server...`)
