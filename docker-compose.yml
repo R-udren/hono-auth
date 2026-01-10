@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - "4000:3000"
     environment:
       # Azure configuration (Defaults to false)
       - AZURE_CLOUD=false
@@ -45,8 +43,8 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=better_auth
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
