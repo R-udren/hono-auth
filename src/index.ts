@@ -36,23 +36,28 @@ const app = new Hono<{
 	}
 }>()
 
-app.use(pinoLogger({
-	pino: logger,
-	http: {
-		onReqBindings: (c) => {
-			const userAgent = c.req.header("user-agent")
-			const ip = c.req.header("cf-connecting-ip")
-				|| c.req.header("x-real-ip")
-				|| c.req.header("x-client-ip")
-				|| c.req.header("x-forwarded-for")
+app.use(
+	pinoLogger({
+		pino: logger,
+		http: {
+			onReqBindings: (c) => {
+				const userAgent = c.req.header("user-agent")
+				const ip
+					= c.req.header("cf-connecting-ip")
+						|| c.req.header("x-real-ip")
+						|| c.req.header("x-client-ip")
+						|| c.req.header("x-forwarded-for")
 
-			return {
-				ip,
-				userAgent,
-			}
+				return {
+					ip,
+					userAgent,
+					method: c.req.method,
+					path: c.req.path,
+				}
+			},
 		},
-	},
-}))
+	}),
+)
 
 app.notFound(notFound)
 app.onError(onError)
@@ -102,9 +107,7 @@ app.get("/me", async (c) => {
 			logger.debug("Verifying JWT token")
 			try {
 				const baseUrl = env.BETTER_AUTH_URL
-				const jwksSet = createRemoteJWKSet(
-					new URL(`${baseUrl}/api/auth/jwks`),
-				)
+				const jwksSet = createRemoteJWKSet(new URL(`${baseUrl}/api/auth/jwks`))
 				const { payload } = await jwtVerify(token, jwksSet, {
 					issuer: baseUrl,
 					audience: baseUrl,
@@ -113,9 +116,13 @@ app.get("/me", async (c) => {
 				logger.debug("JWT validation successful")
 			}
 			catch (error) {
-				const errorMessage = error instanceof Error ? error.message : String(error)
+				const errorMessage
+					= error instanceof Error ? error.message : String(error)
 				const tokenPreview = `${token.slice(0, 20)}...`
-				logger.warn({ error: errorMessage, tokenPreview }, "JWT token validation failed")
+				logger.warn(
+					{ error: errorMessage, tokenPreview },
+					"JWT token validation failed",
+				)
 			}
 		}
 	}
@@ -178,7 +185,10 @@ app.get("/me", async (c) => {
 app.all("/api/auth/*", async (c) => {
 	const res = await auth.handler(c.req.raw)
 	if (c.req.path.endsWith("/jwks")) {
-		res.headers.set("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400")
+		res.headers.set(
+			"Cache-Control",
+			"public, max-age=3600, stale-while-revalidate=86400",
+		)
 	}
 	return res
 })
@@ -190,4 +200,6 @@ export default {
 	fetch: app.fetch,
 }
 
-logger.info(`Access interactive documentation at ${env.BETTER_AUTH_URL}/api/auth/reference`)
+logger.info(
+	`Access interactive documentation at ${env.BETTER_AUTH_URL}/api/auth/reference`,
+)
