@@ -140,10 +140,16 @@ app.get("/me", async (c) => {
 			id: user.id,
 			name: user.name,
 			email: user.email,
+			emailVerified: user.emailVerified,
 			image: user.image,
 			username: user.username,
 			displayUsername: user.displayUsername,
 			role: user.role,
+			banned: user.banned,
+			banReason: user.banReason,
+			banExpires: user.banExpires,
+			createdAt: user.createdAt,
+			updatedAt: user.updatedAt,
 		})
 		.from(user)
 		.where(eq(user.id, userId))
@@ -176,6 +182,7 @@ app.get("/me", async (c) => {
 			expiresAt: session.session.expiresAt,
 			createdAt: session.session.createdAt,
 			ipAddress: session.session.ipAddress,
+			sessionId: session.session.id,
 		}
 	}
 
