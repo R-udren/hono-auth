@@ -107,7 +107,8 @@ app.get("/me", async (c) => {
 			logger.debug("Verifying JWT token")
 			try {
 				const baseUrl = env.BETTER_AUTH_URL
-				const jwksSet = createRemoteJWKSet(new URL(`${baseUrl}/api/auth/jwks`))
+				const internalUrl = new URL("http://localhost:3000")
+				const jwksSet = createRemoteJWKSet(new URL(`${internalUrl}/api/auth/jwks`))
 				const { payload } = await jwtVerify(token, jwksSet, {
 					issuer: baseUrl,
 					audience: baseUrl,
