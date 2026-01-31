@@ -104,7 +104,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 	rateLimit: {
 		enabled: true,
 		window: 60, // 1 minute
-		max: 30,
+		max: 60,
 		storage: "memory",
 	},
 
