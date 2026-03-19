@@ -16,6 +16,8 @@ import { db } from "@/lib/db"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
 
+const trustedOrigins = env.ORIGINS.split(",").map(origin => origin.trim()).filter(Boolean)
+
 const socialProviders: BetterAuthOptions["socialProviders"] = {}
 
 if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
@@ -176,5 +178,5 @@ export const auth = betterAuth<BetterAuthOptions>({
 		},
 	},
 
-	trustedOrigins: env.ORIGINS.split(","),
+	trustedOrigins,
 })

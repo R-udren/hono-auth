@@ -11,14 +11,17 @@ const onError: ErrorHandler = (err, c) => {
 	if ("status" in err) {
 		statusCode = err.status as ContentfulStatusCode
 	}
-	else {
-		statusCode = c.newResponse(null).status as ContentfulStatusCode
-	}
 
 	const nodeEnv = c.env?.NODE_ENV || env.NODE_ENV
+	const isServerError = statusCode >= INTERNAL_SERVER_ERROR
+	const message
+		= nodeEnv === "production" && isServerError
+			? "Internal Server Error"
+			: err.message
+
 	return c.json(
 		{
-			message: err.message,
+			message,
 			status: statusCode,
 			stack: nodeEnv === "production" ? undefined : err.stack,
 		},
