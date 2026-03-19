@@ -3,7 +3,7 @@ import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
-import { admin, jwt, openAPI, username } from "better-auth/plugins"
+import { admin, bearer, jwt, openAPI, username } from "better-auth/plugins"
 import { HTTPException } from "hono/http-exception"
 import { uuidv7 } from "uuidv7"
 
@@ -76,6 +76,7 @@ export const auth = betterAuth<BetterAuthOptions>({
 	},
 
 	plugins: [
+		bearer(),
 		username(),
 		admin(),
 		jwt({
