@@ -8,7 +8,7 @@ import {
   deleteAvatarFile,
   uploadAvatarFile
 } from "@/lib/avatar-storage"
-import { requireSession } from "@/lib/request-auth"
+import { resolveAuthenticatedRequest } from "@/lib/request-auth"
 
 const avatarDeleteRequestLimitBytes = 8 * 1024
 
@@ -89,6 +89,7 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
       }
     }),
     async (c) => {
+      const { userId } = await resolveAuthenticatedRequest(c.req.raw.headers)
       const contentType = c.req.header("content-type")
       if (!contentType?.toLowerCase().startsWith("multipart/form-data")) {
         throw new HTTPException(400, {
@@ -103,7 +104,6 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
         false
       )
 
-      const session = await requireSession(c.req.raw.headers)
       const formData = await c.req.formData()
       const file = formData.get("file")
       const currentImageUrl = parseCurrentImageUrl(formData.get("currentImageUrl"))
@@ -114,7 +114,7 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
         })
       }
 
-      const { imageUrl } = await uploadAvatarFile(session.user.id, file, currentImageUrl)
+      const { imageUrl } = await uploadAvatarFile(userId, file, currentImageUrl)
 
       return c.json({
         imageUrl
@@ -133,7 +133,7 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
       }
     }),
     async (c) => {
-      const session = await requireSession(c.req.raw.headers)
+      const { userId } = await resolveAuthenticatedRequest(c.req.raw.headers)
       assertRequestLength(
         c.req.header("content-length"),
         "Avatar delete request",
@@ -146,7 +146,7 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
         return c.json({ success: true })
       }
 
-      await deleteAvatarFile(session.user.id, imageUrl)
+      await deleteAvatarFile(userId, imageUrl)
 
       return c.json({ success: true })
     }

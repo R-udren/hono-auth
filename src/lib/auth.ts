@@ -4,7 +4,7 @@ import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
-import { admin, bearer, jwt, openAPI, username } from "better-auth/plugins"
+import { admin, jwt, openAPI, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
 
 import { deleteAvatarFile, isManagedAvatarUrl, validateAvatarImage } from "@/lib/avatar-storage"
@@ -70,7 +70,6 @@ export const auth = betterAuth<BetterAuthOptions>({
   },
 
   plugins: [
-    bearer(),
     username(),
     admin(),
     jwt({
