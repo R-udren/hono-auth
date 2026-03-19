@@ -44,7 +44,7 @@ const baseEnvSchema = z.object({
 		.number()
 		.int()
 		.positive()
-		.default(2 * 1024 * 1024),
+		.default(5 * 1024 * 1024),
 	AVATAR_MAX_IMAGE_DIMENSION: z.coerce
 		.number()
 		.int()
