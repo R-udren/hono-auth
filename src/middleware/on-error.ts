@@ -8,7 +8,7 @@ const INTERNAL_SERVER_ERROR = 500
 const onError: ErrorHandler = (err, c) => {
 	let statusCode: ContentfulStatusCode = INTERNAL_SERVER_ERROR
 
-	if ("status" in err) {
+	if (typeof err === "object" && err !== null && "status" in err) {
 		statusCode = err.status as ContentfulStatusCode
 	}
 
