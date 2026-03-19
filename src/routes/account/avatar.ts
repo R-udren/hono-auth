@@ -12,10 +12,36 @@ import {
 } from "@/lib/avatar-storage"
 import { requireSession } from "@/lib/request-auth"
 
+const avatarDeleteRequestLimitBytes = 8 * 1024
+
+const assertRequestLength = (
+	contentLengthHeader: string | undefined,
+	label: string,
+	maxBytes: number,
+	allowZero: boolean,
+) => {
+	if (!contentLengthHeader) {
+		return
+	}
+
+	const contentLength = Number(contentLengthHeader)
+	if (!Number.isFinite(contentLength) || contentLength < 0 || (!allowZero && contentLength === 0)) {
+		throw new HTTPException(400, {
+			message: `${label} has an invalid Content-Length header.`,
+		})
+	}
+
+	if (contentLength > maxBytes) {
+		throw new HTTPException(413, {
+			message: `${label} exceeds the ${maxBytes} byte limit.`,
+		})
+	}
+}
+
 const parseAvatarDeleteBody = async (request: Request) => {
 	const rawBody = await request.text()
 	if (!rawBody.trim()) {
-		return { imageUrl: undefined }
+		return null
 	}
 
 	let parsedBody: unknown
@@ -35,26 +61,25 @@ const parseAvatarDeleteBody = async (request: Request) => {
 		})
 	}
 
-	return parsedBody as { imageUrl?: unknown }
+	const { imageUrl } = parsedBody as { imageUrl?: unknown }
+	return typeof imageUrl === "string" && imageUrl.length > 0
+		? imageUrl
+		: null
 }
 
-const assertAvatarRequestLength = (contentLengthHeader: string | undefined) => {
-	if (!contentLengthHeader) {
-		return
+const parseCurrentImageUrl = (value: File | string | null) => {
+	if (value == null) {
+		return null
 	}
 
-	const contentLength = Number(contentLengthHeader)
-	if (!Number.isFinite(contentLength) || contentLength <= 0) {
+	if (value instanceof File) {
 		throw new HTTPException(400, {
-			message: "Avatar upload request has an invalid Content-Length header.",
+			message: "Avatar currentImageUrl must be a string.",
 		})
 	}
 
-	if (contentLength > avatarUploadRequestLimitBytes) {
-		throw new HTTPException(413, {
-			message: `Avatar upload request exceeds the ${avatarUploadRequestLimitBytes} byte limit.`,
-		})
-	}
+	const imageUrl = value.trim()
+	return imageUrl.length > 0 ? imageUrl : null
 }
 
 export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
@@ -76,11 +101,17 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
 				})
 			}
 
-			assertAvatarRequestLength(c.req.header("content-length"))
+			assertRequestLength(
+				c.req.header("content-length"),
+				"Avatar upload request",
+				avatarUploadRequestLimitBytes,
+				false,
+			)
 
 			const session = await requireSession(c.req.raw.headers)
 			const formData = await c.req.formData()
 			const file = formData.get("file")
+			const currentImageUrl = parseCurrentImageUrl(formData.get("currentImageUrl"))
 
 			if (!(file instanceof File)) {
 				throw new HTTPException(400, {
@@ -88,7 +119,7 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
 				})
 			}
 
-			const imageUrl = await uploadAvatarFile(session.user.id, file)
+			const { imageUrl } = await uploadAvatarFile(session.user.id, file, currentImageUrl)
 
 			return c.json({
 				imageUrl,
@@ -96,16 +127,33 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
 		},
 	)
 
-	app.delete("/api/account/avatar", async (c) => {
-		const session = await requireSession(c.req.raw.headers)
-		const body = await parseAvatarDeleteBody(c.req.raw)
+	app.delete(
+		"/api/account/avatar",
+		bodyLimit({
+			maxSize: avatarDeleteRequestLimitBytes,
+			onError: () => {
+				throw new HTTPException(413, {
+					message: `Avatar delete request exceeds the ${avatarDeleteRequestLimitBytes} byte limit.`,
+				})
+			},
+		}),
+		async (c) => {
+			const session = await requireSession(c.req.raw.headers)
+			assertRequestLength(
+				c.req.header("content-length"),
+				"Avatar delete request",
+				avatarDeleteRequestLimitBytes,
+				true,
+			)
+			const imageUrl = await parseAvatarDeleteBody(c.req.raw)
 
-		if (typeof body.imageUrl !== "string" || body.imageUrl.length === 0) {
+			if (!imageUrl) {
+				return c.json({ success: true })
+			}
+
+			await deleteAvatarFile(session.user.id, imageUrl)
+
 			return c.json({ success: true })
-		}
-
-		await deleteAvatarFile(session.user.id, body.imageUrl)
-
-		return c.json({ success: true })
-	})
+		},
+	)
 }
