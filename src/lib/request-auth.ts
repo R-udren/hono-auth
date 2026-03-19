@@ -8,6 +8,9 @@ import { logger } from "@/lib/logger"
 type AuthSession = Awaited<ReturnType<typeof auth.api.getSession>>
 type ActiveSession = NonNullable<AuthSession>
 
+const baseUrl = env.BETTER_AUTH_URL
+const jwksSet = createRemoteJWKSet(new URL("/api/auth/jwks", baseUrl))
+
 const resolveUserIdFromBearerToken = async (headers: Headers) => {
 	const authorization = headers.get("authorization")
 	if (!authorization?.startsWith("Bearer ")) {
@@ -18,8 +21,6 @@ const resolveUserIdFromBearerToken = async (headers: Headers) => {
 	logger.debug("Verifying JWT token")
 
 	try {
-		const baseUrl = env.BETTER_AUTH_URL
-		const jwksSet = createRemoteJWKSet(new URL("/api/auth/jwks", baseUrl))
 		const { payload } = await jwtVerify(token, jwksSet, {
 			issuer: baseUrl,
 			audience: baseUrl,
