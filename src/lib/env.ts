@@ -29,6 +29,33 @@ const baseEnvSchema = z.object({
 	DISCORD_CLIENT_ID: z.string().optional(),
 	DISCORD_CLIENT_SECRET: z.string().optional(),
 
+	// Avatar storage
+	AVATAR_S3_ACCESS_KEY_ID: z.string().optional(),
+	AVATAR_S3_SECRET_ACCESS_KEY: z.string().optional(),
+	AVATAR_S3_BUCKET: z.string().optional(),
+	AVATAR_S3_ENDPOINT: z.url().optional(),
+	AVATAR_S3_REGION: z.string().default("auto"),
+	AVATAR_PUBLIC_BASE_URL: z.url().optional(),
+	AVATAR_S3_FORCE_PATH_STYLE: z
+		.string()
+		.default("false")
+		.transform(v => v === "true"),
+	AVATAR_MAX_FILE_BYTES: z.coerce
+		.number()
+		.int()
+		.positive()
+		.default(2 * 1024 * 1024),
+	AVATAR_MAX_IMAGE_DIMENSION: z.coerce
+		.number()
+		.int()
+		.positive()
+		.default(2048),
+	AVATAR_MAX_IMAGE_PIXELS: z.coerce
+		.number()
+		.int()
+		.positive()
+		.default(16_777_216),
+
 	// Database
 	DATABASE_URL: z.url("DATABASE_URL must be a valid URL").optional(),
 	RUN_MIGRATIONS: z
@@ -75,6 +102,61 @@ const envSchema = baseEnvSchema.superRefine((data, ctx) => {
 				code: "custom",
 				path: ["DATABASE_URL"],
 				message: "DATABASE_URL is required when not running in Azure",
+			})
+		}
+	}
+
+	const hasPartialAvatarStorageConfig = [
+		data.AVATAR_S3_ACCESS_KEY_ID,
+		data.AVATAR_S3_SECRET_ACCESS_KEY,
+		data.AVATAR_S3_BUCKET,
+		data.AVATAR_S3_ENDPOINT,
+		data.AVATAR_PUBLIC_BASE_URL,
+	].some(Boolean)
+
+	if (hasPartialAvatarStorageConfig) {
+		if (!data.AVATAR_S3_ACCESS_KEY_ID) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["AVATAR_S3_ACCESS_KEY_ID"],
+				message:
+					"AVATAR_S3_ACCESS_KEY_ID is required when avatar storage is configured",
+			})
+		}
+
+		if (!data.AVATAR_S3_SECRET_ACCESS_KEY) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["AVATAR_S3_SECRET_ACCESS_KEY"],
+				message:
+					"AVATAR_S3_SECRET_ACCESS_KEY is required when avatar storage is configured",
+			})
+		}
+
+		if (!data.AVATAR_S3_BUCKET) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["AVATAR_S3_BUCKET"],
+				message:
+					"AVATAR_S3_BUCKET is required when avatar storage is configured",
+			})
+		}
+
+		if (!data.AVATAR_S3_ENDPOINT) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["AVATAR_S3_ENDPOINT"],
+				message:
+					"AVATAR_S3_ENDPOINT is required when avatar storage is configured",
+			})
+		}
+
+		if (!data.AVATAR_PUBLIC_BASE_URL) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["AVATAR_PUBLIC_BASE_URL"],
+				message:
+					"AVATAR_PUBLIC_BASE_URL is required when avatar storage is configured",
 			})
 		}
 	}

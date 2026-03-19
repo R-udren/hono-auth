@@ -2,9 +2,16 @@ import type { BetterAuthOptions } from "better-auth"
 
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { APIError } from "better-auth/api"
 import { admin, jwt, openAPI, username } from "better-auth/plugins"
+import { HTTPException } from "hono/http-exception"
 import { uuidv7 } from "uuidv7"
 
+import {
+	deleteAvatarFile,
+	isManagedAvatarUrl,
+	validateAvatarImage,
+} from "@/lib/avatar-storage"
 import { db } from "@/lib/db"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
@@ -44,6 +51,25 @@ export const auth = betterAuth<BetterAuthOptions>({
 	user: {
 		deleteUser: {
 			enabled: true,
+			afterDelete: async (currentUser: {
+				id: string
+				image?: string | null
+			}) => {
+				const image = currentUser.image
+				if (!image || !isManagedAvatarUrl(image)) {
+					return
+				}
+
+				try {
+					await deleteAvatarFile(currentUser.id, image)
+				}
+				catch (error) {
+					logger.error(
+						{ error, userId: currentUser.id, image },
+						"Failed to delete managed avatar after user deletion",
+					)
+				}
+			},
 		},
 	},
 
@@ -81,6 +107,41 @@ export const auth = betterAuth<BetterAuthOptions>({
 			updateUserInfoOnLink: false,
 		},
 		skipStateCookieCheck: false, // TODO: should not be enabled in production
+	},
+
+	databaseHooks: {
+		user: {
+			update: {
+				before: async (
+					nextUser: Partial<{
+						id: string
+						createdAt: Date
+						updatedAt: Date
+						email: string
+						emailVerified: boolean
+						name: string
+						image?: string | null
+					}> & Record<string, unknown>,
+				) => {
+					try {
+						validateAvatarImage(nextUser.image)
+					}
+					catch (error) {
+						if (error instanceof HTTPException) {
+							throw new APIError("BAD_REQUEST", {
+								message: error.message,
+							})
+						}
+
+						throw error
+					}
+
+					return {
+						data: nextUser,
+					}
+				},
+			},
+		},
 	},
 
 	advanced: {
