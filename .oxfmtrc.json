@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "endOfLine": "lf",
+  "ignorePatterns": ["drizzle/**"],
+  "insertFinalNewline": true,
+  "semi": false,
+  "singleQuote": false,
+  "sortImports": {
+    "customGroups": [
+      {
+        "elementNamePattern": ["hono", "hono/*"],
+        "groupName": "hono",
+        "selector": "external"
+      }
+    ],
+    "groups": [
+      "builtin",
+      "hono",
+      "external",
+      "internal",
+      ["parent", "sibling", "index"],
+      "unknown"
+    ],
+    "internalPattern": ["@/"],
+    "newlinesBetween": true
+  },
+  "tabWidth": 2,
+  "trailingComma": "none",
+  "useTabs": false
+}

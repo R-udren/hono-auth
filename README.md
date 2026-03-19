@@ -32,7 +32,7 @@ A modern authentication service built with [Hono](https://hono.dev/) and [Better
 - **Database**: PostgreSQL with [Drizzle ORM](https://orm.drizzle.team/)
 - **Runtime**: Bun
 - **Logger**: Pino
-- **Linting**: ESLint with @antfu/eslint-config
+- **Code Quality**: Oxlint + Oxfmt
 
 ## Prerequisites
 
@@ -159,7 +159,7 @@ The project uses the following main tables:
 - **account** - OAuth provider accounts
 - **verification** - Email and other verifications
 
-## Linting
+## Code Quality
 
 ```bash
 # Run linter
@@ -167,6 +167,12 @@ bun run lint
 
 # Fix linting issues
 bun run lint:fix
+
+# Format files
+bun run format
+
+# Check formatting without writing
+bun run format:check
 ```
 
 ## Docker
