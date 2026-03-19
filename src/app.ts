@@ -1,7 +1,6 @@
 import { Hono } from "hono"
 
 import type { AppBindings } from "@/lib/app-bindings"
-
 import { notFound, onError } from "@/middleware"
 import { corsMiddleware } from "@/middleware/cors"
 import { requestLogger } from "@/middleware/request-logger"

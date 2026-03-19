@@ -6,17 +6,15 @@ import { runMigrationsOnStartup } from "@/startup/run-migrations-on-startup"
 const startup = runMigrationsOnStartup()
 
 const fetch: typeof app.fetch = async (...args) => {
-	await startup
-	return app.fetch(...args)
+  await startup
+  return app.fetch(...args)
 }
 
 logger.info(`Starting server...`)
 
 export default {
-	port: 3000,
-	fetch,
+  port: 3000,
+  fetch
 }
 
-logger.info(
-	`Access interactive documentation at ${env.BETTER_AUTH_URL}/api/auth/reference`,
-)
+logger.info(`Access interactive documentation at ${env.BETTER_AUTH_URL}/api/auth/reference`)

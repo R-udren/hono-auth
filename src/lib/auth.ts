@@ -1,183 +1,172 @@
-import type { BetterAuthOptions } from "better-auth"
+import { HTTPException } from "hono/http-exception"
 
+import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { APIError } from "better-auth/api"
 import { admin, bearer, jwt, openAPI, username } from "better-auth/plugins"
-import { HTTPException } from "hono/http-exception"
 import { uuidv7 } from "uuidv7"
 
-import {
-	deleteAvatarFile,
-	isManagedAvatarUrl,
-	validateAvatarImage,
-} from "@/lib/avatar-storage"
+import { deleteAvatarFile, isManagedAvatarUrl, validateAvatarImage } from "@/lib/avatar-storage"
 import { db } from "@/lib/db"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
 
-const trustedOrigins = env.ORIGINS.split(",").map(origin => origin.trim()).filter(Boolean)
+const trustedOrigins = env.ORIGINS.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean)
 
 const socialProviders: BetterAuthOptions["socialProviders"] = {}
 
 if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
-	socialProviders.google = {
-		clientId: env.GOOGLE_CLIENT_ID,
-		clientSecret: env.GOOGLE_CLIENT_SECRET,
-	}
+  socialProviders.google = {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET
+  }
 }
 
 if (env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET) {
-	socialProviders.discord = {
-		clientId: env.DISCORD_CLIENT_ID,
-		clientSecret: env.DISCORD_CLIENT_SECRET,
-	}
+  socialProviders.discord = {
+    clientId: env.DISCORD_CLIENT_ID,
+    clientSecret: env.DISCORD_CLIENT_SECRET
+  }
 }
 
 export const auth = betterAuth<BetterAuthOptions>({
-	database: drizzleAdapter(db, {
-		provider: "pg",
-	}),
+  database: drizzleAdapter(db, {
+    provider: "pg"
+  }),
 
-	session: {
-		cookieCache: {
-			enabled: true,
-			maxAge: 5 * 60, // Cache duration in seconds
-		},
-	},
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60 // Cache duration in seconds
+    }
+  },
 
-	emailAndPassword: {
-		enabled: env.EMAIL_PASSWORD_AUTH === "true",
-	},
+  emailAndPassword: {
+    enabled: env.EMAIL_PASSWORD_AUTH === "true"
+  },
 
-	user: {
-		deleteUser: {
-			enabled: true,
-			afterDelete: async (currentUser: {
-				id: string
-				image?: string | null
-			}) => {
-				const image = currentUser.image
-				if (!image || !isManagedAvatarUrl(image)) {
-					return
-				}
+  user: {
+    deleteUser: {
+      enabled: true,
+      afterDelete: async (currentUser: { id: string; image?: string | null }) => {
+        const image = currentUser.image
+        if (!image || !isManagedAvatarUrl(image)) {
+          return
+        }
 
-				try {
-					await deleteAvatarFile(currentUser.id, image)
-				}
-				catch (error) {
-					logger.error(
-						{ error, userId: currentUser.id, image },
-						"Failed to delete managed avatar after user deletion",
-					)
-				}
-			},
-		},
-	},
+        try {
+          await deleteAvatarFile(currentUser.id, image)
+        } catch (error) {
+          logger.error(
+            { error, userId: currentUser.id, image },
+            "Failed to delete managed avatar after user deletion"
+          )
+        }
+      }
+    }
+  },
 
-	plugins: [
-		bearer(),
-		username(),
-		admin(),
-		jwt({
-			jwt: {
-				definePayload: ({ user }) => {
-					const payload = {
-						name: user.name,
-						email: user.email,
-						role: user.role,
-					}
+  plugins: [
+    bearer(),
+    username(),
+    admin(),
+    jwt({
+      jwt: {
+        definePayload: ({ user }) => {
+          const payload = {
+            name: user.name,
+            email: user.email,
+            role: user.role
+          }
 
-					if (!user.emailVerified) {
-						return { ...payload, verified: false }
-					}
+          if (!user.emailVerified) {
+            return { ...payload, verified: false }
+          }
 
-					return payload
-				},
-				expirationTime: `${env.TOKEN_EXPIRATION_HOURS}h`,
-			},
-		}),
-		openAPI(),
-	],
+          return payload
+        },
+        expirationTime: `${env.TOKEN_EXPIRATION_HOURS}h`
+      }
+    }),
+    openAPI()
+  ],
 
-	socialProviders,
+  socialProviders,
 
-	account: {
-		accountLinking: {
-			enabled: env.LINK_ACCOUNTS === "true",
-			trustedProviders: [],
-			allowDifferentEmails: false,
-			updateUserInfoOnLink: false,
-		},
-		skipStateCookieCheck: false, // TODO: should not be enabled in production
-	},
+  account: {
+    accountLinking: {
+      enabled: env.LINK_ACCOUNTS === "true",
+      trustedProviders: [],
+      allowDifferentEmails: false,
+      updateUserInfoOnLink: false
+    },
+    skipStateCookieCheck: false // TODO: should not be enabled in production
+  },
 
-	databaseHooks: {
-		user: {
-			update: {
-				before: async (
-					nextUser: Partial<{
-						id: string
-						createdAt: Date
-						updatedAt: Date
-						email: string
-						emailVerified: boolean
-						name: string
-						image?: string | null
-					}> & Record<string, unknown>,
-				) => {
-					try {
-						validateAvatarImage(nextUser.image)
-					}
-					catch (error) {
-						if (error instanceof HTTPException) {
-							throw new APIError("BAD_REQUEST", {
-								message: error.message,
-							})
-						}
+  databaseHooks: {
+    user: {
+      update: {
+        before: async (
+          nextUser: Partial<{
+            id: string
+            createdAt: Date
+            updatedAt: Date
+            email: string
+            emailVerified: boolean
+            name: string
+            image?: string | null
+          }> &
+            Record<string, unknown>
+        ) => {
+          try {
+            validateAvatarImage(nextUser.image)
+          } catch (error) {
+            if (error instanceof HTTPException) {
+              throw new APIError("BAD_REQUEST", {
+                message: error.message
+              })
+            }
 
-						throw error
-					}
+            throw error
+          }
 
-					return {
-						data: nextUser,
-					}
-				},
-			},
-		},
-	},
+          return {
+            data: nextUser
+          }
+        }
+      }
+    }
+  },
 
-	advanced: {
-		crossSubDomainCookies: {
-			enabled: true,
-			domain: env.COOKIE_DOMAIN,
-		},
-		database: {
-			generateId: () => uuidv7(),
-		},
-		ipAddress: {
-			ipAddressHeaders: [
-				"cf-connecting-ip",
-				"x-real-ip",
-				"x-client-ip",
-				"x-forwarded-for",
-			],
-		},
-	},
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: env.COOKIE_DOMAIN
+    },
+    database: {
+      generateId: () => uuidv7()
+    },
+    ipAddress: {
+      ipAddressHeaders: ["cf-connecting-ip", "x-real-ip", "x-client-ip", "x-forwarded-for"]
+    }
+  },
 
-	rateLimit: {
-		enabled: true,
-		window: 60, // 1 minute
-		max: 60,
-		storage: "memory",
-	},
+  rateLimit: {
+    enabled: true,
+    window: 60, // 1 minute
+    max: 60,
+    storage: "memory"
+  },
 
-	logger: {
-		level: "info",
-		log: (level, message, ...args) => {
-			logger[level](message, ...args)
-		},
-	},
+  logger: {
+    level: "info",
+    log: (level, message, ...args) => {
+      logger[level](message, ...args)
+    }
+  },
 
-	trustedOrigins,
+  trustedOrigins
 })
