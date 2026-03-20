@@ -7,7 +7,7 @@ import { APIError } from "better-auth/api"
 import { admin, jwt, openAPI, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
 
-import { deleteAvatarFile, isManagedAvatarUrl, validateAvatarImage } from "@/lib/avatar-storage"
+import { deleteAllAvatarFiles, validateAvatarImage } from "@/lib/avatar-storage"
 import { db } from "@/lib/db"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
@@ -52,17 +52,12 @@ export const auth = betterAuth<BetterAuthOptions>({
     deleteUser: {
       enabled: true,
       afterDelete: async (currentUser: { id: string; image?: string | null }) => {
-        const image = currentUser.image
-        if (!image || !isManagedAvatarUrl(image)) {
-          return
-        }
-
         try {
-          await deleteAvatarFile(currentUser.id, image)
+          await deleteAllAvatarFiles(currentUser.id)
         } catch (error) {
           logger.error(
-            { error, userId: currentUser.id, image },
-            "Failed to delete managed avatar after user deletion"
+            { error, userId: currentUser.id },
+            "Failed to delete avatars after user deletion"
           )
         }
       }

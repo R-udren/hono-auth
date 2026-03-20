@@ -4,7 +4,6 @@ import { HTTPException } from "hono/http-exception"
 
 import {
   DeleteObjectCommand,
-  HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client
@@ -36,24 +35,23 @@ const getAvatarStorageConfig = () => {
   }
 
   return {
+    accessKeyId,
     bucket,
     endpoint,
     publicBaseUrl,
-    accessKeyId,
     secretAccessKey
   }
 }
 
 const avatarStorageConfig = getAvatarStorageConfig()
-const avatarStorageEnabled = avatarStorageConfig != null
 
 const ensureTrailingSlash = (value: string) => (value.endsWith("/") ? value : `${value}/`)
 
-const baseAvatarUrl = avatarStorageConfig
+const avatarPublicBaseUrl = avatarStorageConfig
   ? new URL(ensureTrailingSlash(avatarStorageConfig.publicBaseUrl))
   : null
 
-const avatarStorageClient = avatarStorageEnabled
+const avatarStorageClient = avatarStorageConfig
   ? new S3Client({
       region: env.AVATAR_S3_REGION,
       endpoint: avatarStorageConfig.endpoint,
@@ -87,45 +85,8 @@ const getAvatarPublicUrl = (objectKey: string, publicBaseUrl: URL) => {
 
 const isManagedAvatarObjectKey = (objectKey: string) => managedAvatarKeyPattern.test(objectKey)
 
-const getManagedAvatarObjectKey = (imageUrl: string | null | undefined) => {
-  if (!imageUrl || !baseAvatarUrl) {
-    return null
-  }
-
-  const avatarUrl = parseUrl(imageUrl)
-  if (!avatarUrl) {
-    return null
-  }
-
-  if (avatarUrl.origin !== baseAvatarUrl.origin) {
-    return null
-  }
-
-  if (!avatarUrl.pathname.startsWith(baseAvatarUrl.pathname)) {
-    return null
-  }
-
-  const objectKey = avatarUrl.pathname.slice(baseAvatarUrl.pathname.length)
-  return isManagedAvatarObjectKey(objectKey) ? objectKey : null
-}
-
-const getOwnedManagedAvatarObjectKey = (userId: string, imageUrl: string | null | undefined) => {
-  const objectKey = getManagedAvatarObjectKey(imageUrl)
-  if (!objectKey) {
-    return null
-  }
-
-  if (!objectKey.startsWith(getAvatarObjectKeyPrefix(userId))) {
-    throw new HTTPException(403, {
-      message: "You can only manage your own avatar images."
-    })
-  }
-
-  return objectKey
-}
-
-const assertAvatarStorageEnabled = () => {
-  if (!avatarStorageConfig || !avatarStorageClient || !baseAvatarUrl) {
+const getAvatarStorage = () => {
+  if (!avatarStorageConfig || !avatarStorageClient || !avatarPublicBaseUrl) {
     throw new HTTPException(501, {
       message: "Avatar uploads are not configured."
     })
@@ -134,7 +95,7 @@ const assertAvatarStorageEnabled = () => {
   return {
     bucket: avatarStorageConfig.bucket,
     client: avatarStorageClient,
-    publicBaseUrl: baseAvatarUrl
+    publicBaseUrl: avatarPublicBaseUrl
   }
 }
 
@@ -177,6 +138,7 @@ const normalizeAvatarFile = async (file: File) => {
 
   const inputBytes = new Uint8Array(await file.arrayBuffer())
   const detectedFileType = await fileTypeFromBuffer(inputBytes)
+
   if (!detectedFileType || !avatarInputMimeTypes.has(detectedFileType.mime)) {
     throw createInvalidAvatarFileError("Avatar file must be a JPEG, PNG, or WebP image.")
   }
@@ -206,54 +168,19 @@ const normalizeAvatarFile = async (file: File) => {
     transformer.resize(avatarOutputMaxDimension, avatarOutputMaxDimension)
   }
 
-  let body: Uint8Array
+  let outputBytes: Uint8Array
   try {
-    body = await transformer.webp(avatarOutputQuality)
+    outputBytes = await transformer.webp(avatarOutputQuality)
   } catch {
     throw createInvalidAvatarFileError("Avatar file could not be normalized safely.")
   }
 
-  assertAvatarFileSize(body.byteLength)
+  assertAvatarFileSize(outputBytes.byteLength)
 
   return {
-    body,
+    body: outputBytes,
     contentType: avatarOutputMimeType,
-    hash: hashAvatarBytes(body)
-  }
-}
-
-const isMissingObjectError = (error: unknown) => {
-  if (!(error instanceof Error)) {
-    return false
-  }
-
-  if (error.name === "NotFound" || error.name === "NoSuchKey") {
-    return true
-  }
-
-  const metadata = Reflect.get(error, "$metadata")
-  return (
-    typeof metadata === "object" &&
-    metadata !== null &&
-    Reflect.get(metadata, "httpStatusCode") === 404
-  )
-}
-
-const objectExists = async (client: S3Client, bucket: string, objectKey: string) => {
-  try {
-    await client.send(
-      new HeadObjectCommand({
-        Bucket: bucket,
-        Key: objectKey
-      })
-    )
-    return true
-  } catch (error) {
-    if (isMissingObjectError(error)) {
-      return false
-    }
-
-    throw error
+    hash: hashAvatarBytes(outputBytes)
   }
 }
 
@@ -270,11 +197,17 @@ const listManagedAvatarObjectKeys = async (client: S3Client, bucket: string, use
       })
     )
 
-    objectKeys.push(
-      ...(response.Contents ?? []).flatMap((object) =>
-        typeof object.Key === "string" && isManagedAvatarObjectKey(object.Key) ? [object.Key] : []
-      )
-    )
+    for (const object of response.Contents ?? []) {
+      if (typeof object.Key !== "string") {
+        continue
+      }
+
+      if (!isManagedAvatarObjectKey(object.Key)) {
+        continue
+      }
+
+      objectKeys.push(object.Key)
+    }
 
     if (!response.IsTruncated || !response.NextContinuationToken) {
       return objectKeys
@@ -284,11 +217,11 @@ const listManagedAvatarObjectKeys = async (client: S3Client, bucket: string, use
   }
 }
 
-const deleteManagedAvatarObjectKeys = async (
-  client: S3Client,
-  bucket: string,
-  objectKeys: string[]
-) => {
+const deleteObjectKeys = async (client: S3Client, bucket: string, objectKeys: string[]) => {
+  if (objectKeys.length === 0) {
+    return
+  }
+
   await Promise.all(
     objectKeys.map((objectKey) =>
       client.send(
@@ -332,63 +265,37 @@ export const validateAvatarImage = (image: unknown) => {
   }
 }
 
-export const deleteAvatarFile = async (userId: string, imageUrl: string) => {
-  const objectKey = getOwnedManagedAvatarObjectKey(userId, imageUrl)
-  if (!objectKey) {
-    return
-  }
-
-  const { bucket, client } = assertAvatarStorageEnabled()
-  await client.send(
-    new DeleteObjectCommand({
-      Bucket: bucket,
-      Key: objectKey
-    })
-  )
+export const deleteAllAvatarFiles = async (userId: string) => {
+  const { bucket, client } = getAvatarStorage()
+  const objectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
+  await deleteObjectKeys(client, bucket, objectKeys)
 }
 
-export const uploadAvatarFile = async (
-  userId: string,
-  file: File,
-  currentImageUrl: string | null
-) => {
-  const { bucket, client, publicBaseUrl } = assertAvatarStorageEnabled()
+export const uploadAvatarFile = async (userId: string, file: File) => {
+  const { bucket, client, publicBaseUrl } = getAvatarStorage()
   const normalizedFile = await normalizeAvatarFile(file)
   const nextObjectKey = getAvatarObjectKey(userId, normalizedFile.hash)
   const nextImageUrl = getAvatarPublicUrl(nextObjectKey, publicBaseUrl)
-  getOwnedManagedAvatarObjectKey(userId, currentImageUrl)
-  const existingManagedObjectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
-  const staleObjectKeys = existingManagedObjectKeys.filter(
-    (objectKey) => objectKey !== nextObjectKey
-  )
 
-  if (await objectExists(client, bucket, nextObjectKey)) {
-    if (staleObjectKeys.length > 0) {
-      await deleteManagedAvatarObjectKeys(client, bucket, staleObjectKeys)
-    }
+  const existingObjectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
+  const hasNextObject = existingObjectKeys.includes(nextObjectKey)
+  const staleObjectKeys = existingObjectKeys.filter((objectKey) => objectKey !== nextObjectKey)
 
-    return { imageUrl: nextImageUrl }
+  if (!hasNextObject) {
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: nextObjectKey,
+        Body: normalizedFile.body,
+        ContentType: normalizedFile.contentType,
+        CacheControl: "public, max-age=31536000, immutable"
+      })
+    )
   }
 
-  await client.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: nextObjectKey,
-      Body: normalizedFile.body,
-      ContentType: normalizedFile.contentType,
-      CacheControl: "public, max-age=31536000, immutable"
-    })
-  )
-
-  if (staleObjectKeys.length > 0) {
-    await deleteManagedAvatarObjectKeys(client, bucket, staleObjectKeys)
-  }
+  await deleteObjectKeys(client, bucket, staleObjectKeys)
 
   return { imageUrl: nextImageUrl }
-}
-
-export const isManagedAvatarUrl = (imageUrl: string | null | undefined) => {
-  return getManagedAvatarObjectKey(imageUrl) != null
 }
 
 export const avatarUploadRequestLimitBytes = env.AVATAR_MAX_FILE_BYTES + 256 * 1024
