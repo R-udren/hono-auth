@@ -6,6 +6,7 @@ import type { AppBindings } from "@/lib/app-bindings"
 import {
   avatarUploadRequestLimitBytes,
   deleteAllAvatarFiles,
+  listAvatarFiles,
   uploadAvatarFile
 } from "@/lib/avatar-storage"
 import { resolveAuthenticatedRequest } from "@/lib/request-auth"
@@ -30,6 +31,13 @@ const assertUploadContentLength = (contentLengthHeader: string | undefined) => {
 }
 
 export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
+  app.get("/api/account/avatar", async (c) => {
+    const { userId } = await resolveAuthenticatedRequest(c.req.raw.headers)
+    const avatars = await listAvatarFiles(userId)
+
+    return c.json({ avatars })
+  })
+
   app.post(
     "/api/account/avatar",
     bodyLimit({

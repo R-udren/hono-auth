@@ -271,6 +271,15 @@ export const deleteAllAvatarFiles = async (userId: string) => {
   await deleteObjectKeys(client, bucket, objectKeys)
 }
 
+export const listAvatarFiles = async (userId: string) => {
+  const { bucket, client, publicBaseUrl } = getAvatarStorage()
+  const objectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
+
+  return objectKeys.map((objectKey) => ({
+    imageUrl: getAvatarPublicUrl(objectKey, publicBaseUrl)
+  }))
+}
+
 export const uploadAvatarFile = async (userId: string, file: File) => {
   const { bucket, client, publicBaseUrl } = getAvatarStorage()
   const normalizedFile = await normalizeAvatarFile(file)
