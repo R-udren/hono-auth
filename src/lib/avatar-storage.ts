@@ -20,7 +20,6 @@ const avatarOutputMimeType = "image/webp"
 const avatarOutputMaxDimension = 512
 const avatarOutputQuality = 80
 const avatarHashLength = 12
-const avatarMaxObjectsPerUser = 5
 const managedAvatarKeyPattern = new RegExp(
   `^users/[^/]+/[0-9a-f]{${avatarHashLength}}\\.${avatarOutputExtension}$`
 )
@@ -258,39 +257,48 @@ const objectExists = async (client: S3Client, bucket: string, objectKey: string)
   }
 }
 
-const assertAvatarObjectLimit = async (
+const listManagedAvatarObjectKeys = async (client: S3Client, bucket: string, userId: string) => {
+  const objectKeys: string[] = []
+  let continuationToken: string | undefined
+
+  while (true) {
+    const response = await client.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: getAvatarObjectKeyPrefix(userId),
+        ContinuationToken: continuationToken
+      })
+    )
+
+    objectKeys.push(
+      ...(response.Contents ?? []).flatMap((object) =>
+        typeof object.Key === "string" && isManagedAvatarObjectKey(object.Key) ? [object.Key] : []
+      )
+    )
+
+    if (!response.IsTruncated || !response.NextContinuationToken) {
+      return objectKeys
+    }
+
+    continuationToken = response.NextContinuationToken
+  }
+}
+
+const deleteManagedAvatarObjectKeys = async (
   client: S3Client,
   bucket: string,
-  userId: string,
-  currentObjectKey: string | null,
-  nextObjectKey: string
+  objectKeys: string[]
 ) => {
-  const response = await client.send(
-    new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: getAvatarObjectKeyPrefix(userId),
-      MaxKeys: avatarMaxObjectsPerUser
-    })
+  await Promise.all(
+    objectKeys.map((objectKey) =>
+      client.send(
+        new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: objectKey
+        })
+      )
+    )
   )
-
-  const objectKeys = (response.Contents ?? []).flatMap((object) =>
-    typeof object.Key === "string" ? [object.Key] : []
-  )
-  if (objectKeys.length < avatarMaxObjectsPerUser) {
-    return
-  }
-
-  if (
-    currentObjectKey &&
-    currentObjectKey !== nextObjectKey &&
-    objectKeys.includes(currentObjectKey)
-  ) {
-    return
-  }
-
-  throw new HTTPException(409, {
-    message: `Avatar upload limit reached for this user (${avatarMaxObjectsPerUser}).`
-  })
 }
 
 export const validateAvatarImage = (image: unknown) => {
@@ -348,17 +356,20 @@ export const uploadAvatarFile = async (
   const normalizedFile = await normalizeAvatarFile(file)
   const nextObjectKey = getAvatarObjectKey(userId, normalizedFile.hash)
   const nextImageUrl = getAvatarPublicUrl(nextObjectKey, publicBaseUrl)
-  const currentObjectKey = getOwnedManagedAvatarObjectKey(userId, currentImageUrl)
+  getOwnedManagedAvatarObjectKey(userId, currentImageUrl)
+  const existingManagedObjectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
+  const staleObjectKeys = existingManagedObjectKeys.filter(
+    (objectKey) => objectKey !== nextObjectKey
+  )
 
   if (await objectExists(client, bucket, nextObjectKey)) {
-    if (currentObjectKey && currentImageUrl && currentObjectKey !== nextObjectKey) {
-      await deleteAvatarFile(userId, currentImageUrl)
+    if (staleObjectKeys.length > 0) {
+      await deleteManagedAvatarObjectKeys(client, bucket, staleObjectKeys)
     }
 
     return { imageUrl: nextImageUrl }
   }
 
-  await assertAvatarObjectLimit(client, bucket, userId, currentObjectKey, nextObjectKey)
   await client.send(
     new PutObjectCommand({
       Bucket: bucket,
@@ -369,8 +380,8 @@ export const uploadAvatarFile = async (
     })
   )
 
-  if (currentObjectKey && currentImageUrl && currentObjectKey !== nextObjectKey) {
-    await deleteAvatarFile(userId, currentImageUrl)
+  if (staleObjectKeys.length > 0) {
+    await deleteManagedAvatarObjectKeys(client, bucket, staleObjectKeys)
   }
 
   return { imageUrl: nextImageUrl }
