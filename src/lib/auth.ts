@@ -7,6 +7,7 @@ import { APIError } from "better-auth/api"
 import { admin, jwt, openAPI, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
 
+import { prepareAuthUserCreate } from "@/lib/auth-user-creation"
 import { deleteAllAvatarFiles, validateAvatarImage } from "@/lib/avatar-storage"
 import { db } from "@/lib/db"
 import { env } from "@/lib/env"
@@ -93,15 +94,35 @@ export const auth = betterAuth<BetterAuthOptions>({
   account: {
     accountLinking: {
       enabled: env.LINK_ACCOUNTS === "true",
-      trustedProviders: [],
-      allowDifferentEmails: false,
+      trustedProviders: ["google", "discord"],
+      allowDifferentEmails: true,
       updateUserInfoOnLink: false
     },
-    skipStateCookieCheck: false // TODO: should not be enabled in production
+    skipStateCookieCheck: false
   },
 
   databaseHooks: {
     user: {
+      create: {
+        before: async (
+          nextUser: Partial<{
+            id: string
+            createdAt: Date
+            updatedAt: Date
+            email: string
+            emailVerified: boolean
+            name: string
+            image?: string | null
+            username?: string | null
+            displayUsername?: string | null
+          }> &
+            Record<string, unknown>
+        ) => {
+          return {
+            data: await prepareAuthUserCreate(nextUser)
+          }
+        }
+      },
       update: {
         before: async (
           nextUser: Partial<{
