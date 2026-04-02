@@ -4,7 +4,7 @@ import { env } from "@/lib/env"
 
 export const logger = pino({
   base: null,
-  level: "info",
+  level: "debug",
   serializers: {
     res: (res) => ({
       status: res.status
