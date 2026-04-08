@@ -42,6 +42,10 @@ const onError: ErrorHandler = (err, c) => {
 
   return c.json(
     {
+      error: {
+        message,
+        status: statusCode
+      },
       message,
       status: statusCode,
       stack: nodeEnv === "production" ? undefined : err.stack
