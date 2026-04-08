@@ -2,9 +2,12 @@ import { HTTPException } from "hono/http-exception"
 
 import type { BetterAuthOptions } from "better-auth"
 import { APIError } from "better-auth/api"
+import { and, eq, ne } from "drizzle-orm"
 
 import { prepareAuthUserCreate } from "@/lib/auth-user-creation"
 import { validateAvatarImage } from "@/lib/avatar-storage"
+import { db } from "@/lib/db"
+import { user as authUser } from "@/lib/db/auth-schema"
 
 type CreateUserInput = Partial<{
   id: string
@@ -51,6 +54,24 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
           }
 
           throw error
+        }
+
+        if (
+          typeof nextUser.id === "string" &&
+          typeof nextUser.username === "string" &&
+          nextUser.username.trim()
+        ) {
+          const conflictingUser = await db
+            .select({ id: authUser.id })
+            .from(authUser)
+            .where(and(eq(authUser.username, nextUser.username), ne(authUser.id, nextUser.id)))
+            .limit(1)
+
+          if (conflictingUser.length) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Username already exists"
+            })
+          }
         }
 
         return {
