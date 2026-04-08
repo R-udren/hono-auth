@@ -1,14 +1,12 @@
-import { HTTPException } from "hono/http-exception"
-
 import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { APIError } from "better-auth/api"
 import { admin, jwt, openAPI, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
 
-import { prepareAuthUserCreate } from "@/lib/auth-user-creation"
-import { deleteAllAvatarFiles, validateAvatarImage } from "@/lib/avatar-storage"
+import { authDatabaseHooks } from "@/lib/auth-database-hooks"
+import { jwtHeaderExposureHook, jwtPluginOptions } from "@/lib/auth-jwt"
+import { deleteAllAvatarFiles } from "@/lib/avatar-storage"
 import { db } from "@/lib/db"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
@@ -65,29 +63,7 @@ export const auth = betterAuth<BetterAuthOptions>({
     }
   },
 
-  plugins: [
-    username(),
-    admin(),
-    jwt({
-      jwt: {
-        definePayload: ({ user }) => {
-          const payload = {
-            name: user.name,
-            email: user.email,
-            role: user.role
-          }
-
-          if (!user.emailVerified) {
-            return { ...payload, verified: false }
-          }
-
-          return payload
-        },
-        expirationTime: `${env.TOKEN_EXPIRATION_HOURS}h`
-      }
-    }),
-    openAPI()
-  ],
+  plugins: [username(), admin(), jwt(jwtPluginOptions), jwtHeaderExposureHook, openAPI()],
 
   socialProviders,
 
@@ -101,60 +77,7 @@ export const auth = betterAuth<BetterAuthOptions>({
     skipStateCookieCheck: false
   },
 
-  databaseHooks: {
-    user: {
-      create: {
-        before: async (
-          nextUser: Partial<{
-            id: string
-            createdAt: Date
-            updatedAt: Date
-            email: string
-            emailVerified: boolean
-            name: string
-            image?: string | null
-            username?: string | null
-            displayUsername?: string | null
-          }> &
-            Record<string, unknown>
-        ) => {
-          return {
-            data: await prepareAuthUserCreate(nextUser)
-          }
-        }
-      },
-      update: {
-        before: async (
-          nextUser: Partial<{
-            id: string
-            createdAt: Date
-            updatedAt: Date
-            email: string
-            emailVerified: boolean
-            name: string
-            image?: string | null
-          }> &
-            Record<string, unknown>
-        ) => {
-          try {
-            validateAvatarImage(nextUser.image)
-          } catch (error) {
-            if (error instanceof HTTPException) {
-              throw new APIError("BAD_REQUEST", {
-                message: error.message
-              })
-            }
-
-            throw error
-          }
-
-          return {
-            data: nextUser
-          }
-        }
-      }
-    }
-  },
+  databaseHooks: authDatabaseHooks,
 
   advanced: {
     crossSubDomainCookies: {
