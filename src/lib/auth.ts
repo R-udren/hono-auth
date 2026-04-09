@@ -106,5 +106,9 @@ export const auth = betterAuth<BetterAuthOptions>({
     }
   },
 
+  onAPIError: {
+    throw: true
+  },
+
   trustedOrigins
 })
