@@ -25,6 +25,8 @@ const baseEnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   DISCORD_CLIENT_ID: z.string().optional(),
   DISCORD_CLIENT_SECRET: z.string().optional(),
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
 
   // Avatar storage
   AVATAR_S3_ACCESS_KEY_ID: z.string().optional(),

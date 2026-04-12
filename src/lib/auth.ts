@@ -22,6 +22,7 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET
   }
+  logger.info("Google social provider configured")
 }
 
 if (env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET) {
@@ -29,6 +30,15 @@ if (env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET) {
     clientId: env.DISCORD_CLIENT_ID,
     clientSecret: env.DISCORD_CLIENT_SECRET
   }
+  logger.info("Discord social provider configured")
+}
+
+if (env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET) {
+  socialProviders.github = {
+    clientId: env.GITHUB_CLIENT_ID,
+    clientSecret: env.GITHUB_CLIENT_SECRET
+  }
+  logger.info("GitHub social provider configured")
 }
 
 export const auth = betterAuth<BetterAuthOptions>({
@@ -70,7 +80,7 @@ export const auth = betterAuth<BetterAuthOptions>({
   account: {
     accountLinking: {
       enabled: env.LINK_ACCOUNTS === "true",
-      trustedProviders: ["google", "discord"],
+      trustedProviders: ["google", "discord", "github"],
       allowDifferentEmails: true,
       updateUserInfoOnLink: false
     },
