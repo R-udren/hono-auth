@@ -4,6 +4,11 @@ import type { BetterAuthOptions, GenericEndpointContext } from "better-auth"
 import { APIError } from "better-auth/api"
 import { and, eq, ne } from "drizzle-orm"
 
+import {
+  getAuthUserState,
+  syncAdminRole,
+  syncPersistedUserAdminRoleById
+} from "@/lib/auth-admin-roles"
 import { prepareAuthUserCreate } from "@/lib/auth-user-creation"
 import { validateAvatarImage } from "@/lib/avatar-storage"
 import { db } from "@/lib/db"
@@ -19,6 +24,7 @@ type CreateUserInput = Partial<{
   image?: string | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
 }> &
   Record<string, unknown>
 
@@ -32,6 +38,7 @@ type UpdateUserInput = Partial<{
   image?: string | null
   username?: string | null
   displayUsername?: string | null
+  role?: string | null
 }> &
   Record<string, unknown>
 
@@ -58,8 +65,14 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
   user: {
     create: {
       before: async (nextUser: CreateUserInput) => {
+        const preparedUser = await prepareAuthUserCreate(nextUser)
+        const syncedRole = syncAdminRole(preparedUser)
+
         return {
-          data: await prepareAuthUserCreate(nextUser)
+          data: {
+            ...preparedUser,
+            ...(syncedRole.changed || syncedRole.role !== null ? { role: syncedRole.role } : {})
+          }
         }
       }
     },
@@ -99,13 +112,36 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
           }
         }
 
+        const currentUserId =
+          typeof nextUser.id === "string" && nextUser.id ? nextUser.id : getSessionUserId(context)
+        const currentUser = currentUserId ? await getAuthUserState(currentUserId) : null
+        const roleSyncInput = {
+          email: nextUser.email ?? currentUser?.email,
+          role: nextUser.role ?? currentUser?.role
+        }
+        const canSyncRole =
+          typeof roleSyncInput.email === "string" && Boolean(roleSyncInput.email.trim())
+        const syncedRole = canSyncRole ? syncAdminRole(roleSyncInput) : null
+
         return {
           data: {
             ...nextUser,
             ...(typeof nextUser.username === "string" && nextUser.username.trim()
               ? { username: nextUser.username.trim() }
-              : {})
+              : {}),
+            ...(syncedRole?.changed ? { role: syncedRole.role } : {})
           }
+        }
+      }
+    }
+  },
+  session: {
+    create: {
+      before: async (nextSession: { userId: string } & Record<string, unknown>) => {
+        await syncPersistedUserAdminRoleById(nextSession.userId)
+
+        return {
+          data: nextSession
         }
       }
     }

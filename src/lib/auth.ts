@@ -5,7 +5,7 @@ import { admin, jwt, openAPI, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
 
 import { authDatabaseHooks } from "@/lib/auth-database-hooks"
-import { jwtHeaderExposureHook, jwtPluginOptions } from "@/lib/auth-jwt"
+import { authSessionSyncHook, jwtPluginOptions } from "@/lib/auth-jwt"
 import { deleteAllAvatarFiles } from "@/lib/avatar-storage"
 import { db } from "@/lib/db"
 import { env } from "@/lib/env"
@@ -73,7 +73,7 @@ export const auth = betterAuth<BetterAuthOptions>({
     }
   },
 
-  plugins: [username(), admin(), jwt(jwtPluginOptions), jwtHeaderExposureHook, openAPI()],
+  plugins: [username(), admin(), jwt(jwtPluginOptions), authSessionSyncHook, openAPI()],
 
   socialProviders,
 

@@ -3,14 +3,26 @@ import { HTTPException } from "hono/http-exception"
 import { createRemoteJWKSet, jwtVerify } from "jose"
 
 import { auth } from "@/lib/auth"
+import { syncPersistedUserAdminRoleById } from "@/lib/auth-admin-roles"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
 
 type AuthSession = Awaited<ReturnType<typeof auth.api.getSession>>
 type ActiveSession = NonNullable<AuthSession>
+type SessionUserWithRole = ActiveSession["user"] & { role?: string }
 
 const baseUrl = env.BETTER_AUTH_URL
 const jwksSet = createRemoteJWKSet(new URL("/api/auth/jwks", baseUrl))
+
+const syncSessionUserRole = async (session: ActiveSession): Promise<ActiveSession> => {
+  const syncedRole = await syncPersistedUserAdminRoleById(session.user.id)
+  if (!syncedRole?.changed) {
+    return session
+  }
+
+  ;(session.user as SessionUserWithRole).role = syncedRole.role ?? undefined
+  return session
+}
 
 const resolveUserIdFromBearerToken = async (headers: Headers) => {
   const authorization = headers.get("authorization")
@@ -41,22 +53,28 @@ const resolveUserIdFromBearerToken = async (headers: Headers) => {
 }
 
 export const requireSession = async (headers: Headers): Promise<ActiveSession> => {
-  const session = await auth.api.getSession({ headers })
+  const session = await auth.api.getSession({
+    headers
+  })
   if (!session) {
     throw new HTTPException(401, {
       message: "Authentication required."
     })
   }
 
-  return session
+  return syncSessionUserRole(session)
 }
 
 export const resolveAuthenticatedRequest = async (headers: Headers) => {
-  const session = await auth.api.getSession({ headers })
+  const session = await auth.api.getSession({
+    headers
+  })
   if (session) {
+    const syncedSession = await syncSessionUserRole(session)
+
     return {
-      userId: session.user.id,
-      session
+      userId: syncedSession.user.id,
+      session: syncedSession
     }
   }
 
