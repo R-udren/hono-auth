@@ -16,7 +16,7 @@ const jwksSet = createRemoteJWKSet(new URL("/api/auth/jwks", baseUrl))
 
 const syncSessionUserRole = async (session: ActiveSession): Promise<ActiveSession> => {
   const syncedRole = await syncPersistedUserAdminRoleById(session.user.id)
-  if (!syncedRole?.changed) {
+  if (!syncedRole) {
     return session
   }
 
@@ -54,7 +54,10 @@ const resolveUserIdFromBearerToken = async (headers: Headers) => {
 
 export const requireSession = async (headers: Headers): Promise<ActiveSession> => {
   const session = await auth.api.getSession({
-    headers
+    headers,
+    query: {
+      disableCookieCache: true
+    }
   })
   if (!session) {
     throw new HTTPException(401, {
@@ -67,7 +70,10 @@ export const requireSession = async (headers: Headers): Promise<ActiveSession> =
 
 export const resolveAuthenticatedRequest = async (headers: Headers) => {
   const session = await auth.api.getSession({
-    headers
+    headers,
+    query: {
+      disableCookieCache: true
+    }
   })
   if (session) {
     const syncedSession = await syncSessionUserRole(session)

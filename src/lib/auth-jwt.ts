@@ -2,21 +2,8 @@ import type { BetterAuthPlugin } from "better-auth"
 import { createAuthMiddleware } from "better-auth/api"
 import { getJwtToken } from "better-auth/plugins"
 
-import {
-  getAuthUserState,
-  syncPersistedUserAdminRoleByEmail,
-  syncPersistedUserAdminRoleById
-} from "@/lib/auth-admin-roles"
+import { getAuthUserState } from "@/lib/auth-admin-roles"
 import { env } from "@/lib/env"
-
-const getBodyEmail = (body: unknown) => {
-  if (!body || typeof body !== "object") {
-    return null
-  }
-
-  const email = (body as { email?: unknown }).email
-  return typeof email === "string" && email.trim() ? email : null
-}
 
 export const jwtPluginOptions = {
   jwt: {
@@ -53,21 +40,6 @@ export const jwtPluginOptions = {
 export const authSessionSyncHook = {
   id: "auth-session-sync",
   hooks: {
-    before: [
-      {
-        matcher() {
-          return true
-        },
-        handler: createAuthMiddleware(async (ctx) => {
-          const email = getBodyEmail(ctx.body)
-          if (!email) {
-            return
-          }
-
-          await syncPersistedUserAdminRoleByEmail(email)
-        })
-      }
-    ],
     after: [
       {
         matcher() {
@@ -80,8 +52,7 @@ export const authSessionSyncHook = {
           }
 
           const persistedUser = await getAuthUserState(session.user.id)
-          const syncedRole = await syncPersistedUserAdminRoleById(session.user.id)
-          session.user.role = syncedRole?.role ?? persistedUser?.role ?? undefined
+          session.user.role = persistedUser?.role ?? undefined
           session.user.username = persistedUser?.username ?? undefined
           session.user.displayUsername = persistedUser?.displayUsername ?? undefined
 

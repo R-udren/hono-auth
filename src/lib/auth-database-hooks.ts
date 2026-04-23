@@ -122,6 +122,7 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
         const canSyncRole =
           typeof roleSyncInput.email === "string" && Boolean(roleSyncInput.email.trim())
         const syncedRole = canSyncRole ? syncAdminRole(roleSyncInput) : null
+        const hasProvidedRole = typeof nextUser.role === "string" || nextUser.role === null
 
         return {
           data: {
@@ -129,7 +130,9 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
             ...(typeof nextUser.username === "string" && nextUser.username.trim()
               ? { username: nextUser.username.trim() }
               : {}),
-            ...(syncedRole?.changed ? { role: syncedRole.role } : {})
+            ...(syncedRole && (hasProvidedRole || syncedRole.changed)
+              ? { role: syncedRole.role }
+              : {})
           }
         }
       }
