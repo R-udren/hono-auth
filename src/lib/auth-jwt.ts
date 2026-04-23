@@ -2,19 +2,42 @@ import type { BetterAuthPlugin } from "better-auth"
 import { createAuthMiddleware } from "better-auth/api"
 import { getJwtToken } from "better-auth/plugins"
 
+import {
+  getAuthUserState,
+  syncPersistedUserAdminRoleByEmail,
+  syncPersistedUserAdminRoleById
+} from "@/lib/auth-admin-roles"
 import { env } from "@/lib/env"
+
+const getBodyEmail = (body: unknown) => {
+  if (!body || typeof body !== "object") {
+    return null
+  }
+
+  const email = (body as { email?: unknown }).email
+  return typeof email === "string" && email.trim() ? email : null
+}
 
 export const jwtPluginOptions = {
   jwt: {
     definePayload: ({
       user
     }: {
-      user: { name: string; email: string; role?: string; emailVerified: boolean }
+      user: {
+        name: string
+        email: string
+        username?: string | null
+        role?: string
+        displayUsername?: string | null
+        emailVerified: boolean
+      }
     }) => {
       const payload = {
         name: user.name,
         email: user.email,
-        role: user.role
+        username: user.username ?? undefined,
+        role: user.role,
+        displayUsername: user.displayUsername ?? undefined
       }
 
       if (!user.emailVerified) {
@@ -27,19 +50,40 @@ export const jwtPluginOptions = {
   }
 }
 
-export const jwtHeaderExposureHook = {
-  id: "jwt-header-exposure",
+export const authSessionSyncHook = {
+  id: "auth-session-sync",
   hooks: {
-    after: [
+    before: [
       {
-        matcher(context) {
-          return context.path === "/sign-in/email" || context.path === "/sign-up/email"
+        matcher() {
+          return true
         },
         handler: createAuthMiddleware(async (ctx) => {
-          const session = ctx.context.session || ctx.context.newSession
+          const email = getBodyEmail(ctx.body)
+          if (!email) {
+            return
+          }
+
+          await syncPersistedUserAdminRoleByEmail(email)
+        })
+      }
+    ],
+    after: [
+      {
+        matcher() {
+          return true
+        },
+        handler: createAuthMiddleware(async (ctx) => {
+          const session = ctx.context.newSession
           if (!session?.session) {
             return
           }
+
+          const persistedUser = await getAuthUserState(session.user.id)
+          const syncedRole = await syncPersistedUserAdminRoleById(session.user.id)
+          session.user.role = syncedRole?.role ?? persistedUser?.role ?? undefined
+          session.user.username = persistedUser?.username ?? undefined
+          session.user.displayUsername = persistedUser?.displayUsername ?? undefined
 
           const previousSession = ctx.context.session
           ctx.context.session = session
