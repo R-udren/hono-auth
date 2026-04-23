@@ -60,6 +60,7 @@ const baseEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "production"]).default("development"),
   EMAIL_PASSWORD_AUTH: z.string().default("true"),
   LINK_ACCOUNTS: z.string().default("true"),
+  ADMIN_EMAILS: z.string().default(""),
   TOKEN_EXPIRATION_HOURS: z.coerce.number().int().positive().default(4)
 })
 
