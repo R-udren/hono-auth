@@ -46,7 +46,7 @@ export const authSessionSyncHook = {
           return true
         },
         handler: createAuthMiddleware(async (ctx) => {
-          const session = ctx.context.newSession
+          const session = ctx.context.newSession ?? ctx.context.session
           if (!session?.session) {
             return
           }
