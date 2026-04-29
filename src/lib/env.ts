@@ -1,5 +1,72 @@
 import { z } from "zod"
 
+const decimalByteUnits = {
+  b: 1,
+  gb: 1000 ** 3,
+  kb: 1000,
+  mb: 1000 ** 2
+} as const
+
+const binaryByteUnits = {
+  gib: 1024 ** 3,
+  kib: 1024,
+  mib: 1024 ** 2
+} as const
+
+const byteUnits = {
+  ...decimalByteUnits,
+  ...binaryByteUnits
+} as const
+
+const parseByteSize = (value: string, ctx: z.RefinementCtx) => {
+  const normalizedValue = value.trim().toLowerCase()
+
+  if (normalizedValue.length === 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Size value cannot be empty"
+    })
+    return z.NEVER
+  }
+
+  if (/^\d+$/.test(normalizedValue)) {
+    const bytes = Number(normalizedValue)
+    if (!Number.isSafeInteger(bytes) || bytes <= 0) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Size value must be a positive integer"
+      })
+      return z.NEVER
+    }
+
+    return bytes
+  }
+
+  const match = normalizedValue.match(/^(\d+(?:\.\d+)?)\s*(b|kb|mb|gb|kib|mib|gib)$/)
+  if (!match) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Size value must be bytes or use B, KB, MB, GB, KiB, MiB, or GiB"
+    })
+    return z.NEVER
+  }
+
+  const numericValue = Number(match[1])
+  const unit = match[2] as keyof typeof byteUnits
+  const multiplier = byteUnits[unit]
+  const bytes = Math.round(numericValue * multiplier)
+
+  if (!Number.isSafeInteger(bytes) || bytes <= 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Size value must resolve to a positive integer byte count"
+    })
+    return z.NEVER
+  }
+
+  return bytes
+}
+
 const baseEnvSchema = z.object({
   // Azure configuration
   AZURE_CLOUD: z
@@ -39,11 +106,7 @@ const baseEnvSchema = z.object({
     .string()
     .default("false")
     .transform((v) => v === "true"),
-  AVATAR_MAX_FILE_BYTES: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(5 * 1024 * 1024),
+  AVATAR_MAX_FILE_BYTES: z.string().default("5MiB").transform(parseByteSize),
   AVATAR_MAX_IMAGE_DIMENSION: z.coerce.number().int().positive().default(2048),
   AVATAR_MAX_IMAGE_PIXELS: z.coerce.number().int().positive().default(16_777_216),
 

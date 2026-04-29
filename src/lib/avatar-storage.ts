@@ -197,6 +197,19 @@ const normalizeAvatarFile = async (file: File) => {
   assertAvatarFileSize(file.size, "file-size")
 
   const inputBytes = new Uint8Array(await file.arrayBuffer())
+
+  if (file.size !== inputBytes.byteLength) {
+    logger.warn(
+      {
+        actualBytes: inputBytes.byteLength,
+        actualSize: formatByteCount(inputBytes.byteLength),
+        declaredBytes: file.size,
+        declaredSize: formatByteCount(file.size)
+      },
+      "Avatar upload file size does not match parsed buffer size"
+    )
+  }
+
   assertAvatarFileSize(inputBytes.byteLength, "array-buffer")
 
   const detectedFileType = await fileTypeFromBuffer(inputBytes)
