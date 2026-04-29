@@ -12,6 +12,7 @@ import { Transformer } from "@napi-rs/image"
 import { fileTypeFromBuffer } from "file-type"
 
 import { env } from "@/lib/env"
+import { logger } from "@/lib/logger"
 
 const avatarInputMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"])
 const avatarOutputExtension = "webp"
@@ -234,6 +235,50 @@ const deleteObjectKeys = async (client: S3Client, bucket: string, objectKeys: st
   )
 }
 
+const getAvatarStorageErrorDetails = (error: unknown) => {
+  if (typeof error !== "object" || error === null) {
+    return { error }
+  }
+
+  const errorRecord = error as Record<string, unknown>
+  const metadata = errorRecord.$metadata as Record<string, unknown> | undefined
+
+  return {
+    code: errorRecord.Code ?? errorRecord.code,
+    httpStatusCode: metadata?.httpStatusCode,
+    message: errorRecord.message,
+    name: errorRecord.name,
+    requestId: metadata?.requestId
+  }
+}
+
+const assertPublicAvatarUrlExists = async (imageUrl: string) => {
+  let response: Response
+  try {
+    response = await fetch(imageUrl, { method: "HEAD" })
+  } catch (error) {
+    logger.error({ error, imageUrl }, "Public avatar URL is not reachable")
+
+    throw new HTTPException(502, {
+      cause: error,
+      message: "Avatar upload failed."
+    })
+  }
+
+  if (response.ok) {
+    return
+  }
+
+  logger.error(
+    { imageUrl, status: response.status },
+    "Public avatar URL returned a non-success status"
+  )
+
+  throw new HTTPException(502, {
+    message: "Avatar upload failed."
+  })
+}
+
 export const validateAvatarImage = (image: unknown) => {
   if (image == null || image === "") {
     return
@@ -287,10 +332,9 @@ export const uploadAvatarFile = async (userId: string, file: File) => {
   const nextImageUrl = getAvatarPublicUrl(nextObjectKey, publicBaseUrl)
 
   const existingObjectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
-  const hasNextObject = existingObjectKeys.includes(nextObjectKey)
   const staleObjectKeys = existingObjectKeys.filter((objectKey) => objectKey !== nextObjectKey)
 
-  if (!hasNextObject) {
+  try {
     await client.send(
       new PutObjectCommand({
         Bucket: bucket,
@@ -300,7 +344,19 @@ export const uploadAvatarFile = async (userId: string, file: File) => {
         CacheControl: "public, max-age=31536000, immutable"
       })
     )
+  } catch (error) {
+    logger.error(
+      { bucket, objectKey: nextObjectKey, storageError: getAvatarStorageErrorDetails(error) },
+      "Avatar upload S3 write failed"
+    )
+
+    throw new HTTPException(502, {
+      cause: error,
+      message: "Avatar upload failed."
+    })
   }
+
+  await assertPublicAvatarUrlExists(nextImageUrl)
 
   await deleteObjectKeys(client, bucket, staleObjectKeys)
 
