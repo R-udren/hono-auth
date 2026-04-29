@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception"
 
 import type { AppBindings } from "@/lib/app-bindings"
 import {
+  createAvatarUploadRequestLimitError,
   avatarUploadRequestLimitBytes,
   deleteAllAvatarFiles,
   listAvatarFiles,
@@ -24,8 +25,9 @@ const assertUploadContentLength = (contentLengthHeader: string | undefined) => {
   }
 
   if (contentLength > avatarUploadRequestLimitBytes) {
-    throw new HTTPException(413, {
-      message: `Avatar upload request exceeds the ${avatarUploadRequestLimitBytes} byte limit.`
+    throw createAvatarUploadRequestLimitError({
+      actualBytes: contentLength,
+      source: "content-length"
     })
   }
 }
@@ -43,9 +45,7 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
     bodyLimit({
       maxSize: avatarUploadRequestLimitBytes,
       onError: () => {
-        throw new HTTPException(413, {
-          message: `Avatar upload request exceeds the ${avatarUploadRequestLimitBytes} byte limit.`
-        })
+        throw createAvatarUploadRequestLimitError({ source: "body-limit" })
       }
     }),
     async (c) => {

@@ -21,6 +21,8 @@ const avatarOutputMaxDimension = 512
 const avatarOutputQuality = 80
 const avatarHashLength = 12
 const avatarMaxStoredFiles = 3
+const bytesPerKibibyte = 1024
+const bytesPerMebibyte = bytesPerKibibyte * 1024
 const managedAvatarKeyPattern = new RegExp(
   `^users/[^/]+/[0-9a-f]{${avatarHashLength}}\\.${avatarOutputExtension}$`
 )
@@ -80,6 +82,56 @@ const parseUrl = (value: string) => {
 
 const createInvalidAvatarFileError = (message: string) => new HTTPException(400, { message })
 
+const formatByteCount = (bytes: number) => {
+  if (bytes >= bytesPerMebibyte) {
+    const mebibytes = bytes / bytesPerMebibyte
+    return `${Number.isInteger(mebibytes) ? mebibytes : mebibytes.toFixed(1)} MiB`
+  }
+
+  if (bytes >= bytesPerKibibyte) {
+    const kibibytes = bytes / bytesPerKibibyte
+    return `${Number.isInteger(kibibytes) ? kibibytes : kibibytes.toFixed(1)} KiB`
+  }
+
+  return bytes === 1 ? "1 byte" : `${bytes} bytes`
+}
+
+const logAvatarUploadLimitExceeded = (options: {
+  actualBytes?: number
+  limitBytes: number
+  scope: "file" | "request"
+  source: string
+}) => {
+  logger.warn(
+    {
+      actualBytes: options.actualBytes,
+      actualSize: options.actualBytes == null ? undefined : formatByteCount(options.actualBytes),
+      limitBytes: options.limitBytes,
+      limitSize: formatByteCount(options.limitBytes),
+      scope: options.scope,
+      source: options.source
+    },
+    "Avatar upload exceeded size limit"
+  )
+}
+
+const createAvatarUploadLimitError = (
+  scope: "file" | "request",
+  bytes: number,
+  options: { actualBytes?: number; source: string }
+) => {
+  logAvatarUploadLimitExceeded({
+    actualBytes: options.actualBytes,
+    limitBytes: bytes,
+    scope,
+    source: options.source
+  })
+
+  return new HTTPException(413, {
+    message: `Avatar upload ${scope} exceeds ${formatByteCount(bytes)} limit.`
+  })
+}
+
 const getAvatarObjectKeyPrefix = (userId: string) => `users/${encodeURIComponent(userId)}/`
 
 const getAvatarObjectKey = (userId: string, hash: string) => {
@@ -106,15 +158,16 @@ const getAvatarStorage = () => {
   }
 }
 
-const assertAvatarFileSize = (fileSize: number) => {
+const assertAvatarFileSize = (fileSize: number, source: string) => {
   if (fileSize === 0) {
     throw createInvalidAvatarFileError("Avatar file cannot be empty.")
   }
 
   if (fileSize > env.AVATAR_MAX_FILE_BYTES) {
-    throw createInvalidAvatarFileError(
-      `Avatar file exceeds the ${env.AVATAR_MAX_FILE_BYTES} byte limit.`
-    )
+    throw createAvatarUploadLimitError("file", env.AVATAR_MAX_FILE_BYTES, {
+      actualBytes: fileSize,
+      source
+    })
   }
 }
 
@@ -141,9 +194,11 @@ const hashAvatarBytes = (bytes: Uint8Array) => {
 }
 
 const normalizeAvatarFile = async (file: File) => {
-  assertAvatarFileSize(file.size)
+  assertAvatarFileSize(file.size, "file-size")
 
   const inputBytes = new Uint8Array(await file.arrayBuffer())
+  assertAvatarFileSize(inputBytes.byteLength, "array-buffer")
+
   const detectedFileType = await fileTypeFromBuffer(inputBytes)
 
   if (!detectedFileType || !avatarInputMimeTypes.has(detectedFileType.mime)) {
@@ -182,7 +237,7 @@ const normalizeAvatarFile = async (file: File) => {
     throw createInvalidAvatarFileError("Avatar file could not be normalized safely.")
   }
 
-  assertAvatarFileSize(outputBytes.byteLength)
+  assertAvatarFileSize(outputBytes.byteLength, "normalized-output")
 
   return {
     body: outputBytes,
@@ -381,3 +436,12 @@ export const uploadAvatarFile = async (userId: string, file: File) => {
 }
 
 export const avatarUploadRequestLimitBytes = env.AVATAR_MAX_FILE_BYTES + 256 * 1024
+export const createAvatarUploadRequestLimitError = (options?: {
+  actualBytes?: number
+  source?: string
+}) => {
+  return createAvatarUploadLimitError("request", avatarUploadRequestLimitBytes, {
+    actualBytes: options?.actualBytes,
+    source: options?.source ?? "request-limit"
+  })
+}
