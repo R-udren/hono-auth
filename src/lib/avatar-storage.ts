@@ -20,9 +20,15 @@ const avatarOutputMimeType = "image/webp"
 const avatarOutputMaxDimension = 512
 const avatarOutputQuality = 80
 const avatarHashLength = 12
+const avatarMaxStoredFiles = 3
 const managedAvatarKeyPattern = new RegExp(
   `^users/[^/]+/[0-9a-f]{${avatarHashLength}}\\.${avatarOutputExtension}$`
 )
+
+type ManagedAvatarObject = {
+  lastModified: Date | null
+  objectKey: string
+}
 
 const getAvatarStorageConfig = () => {
   const bucket = env.AVATAR_S3_BUCKET
@@ -185,8 +191,24 @@ const normalizeAvatarFile = async (file: File) => {
   }
 }
 
-const listManagedAvatarObjectKeys = async (client: S3Client, bucket: string, userId: string) => {
-  const objectKeys: string[] = []
+const getAvatarObjectModifiedTime = (object: ManagedAvatarObject) => {
+  return object.lastModified?.getTime() ?? 0
+}
+
+const sortAvatarObjectsByNewest = (objects: ManagedAvatarObject[]) => {
+  return [...objects].toSorted(
+    (a, b) => getAvatarObjectModifiedTime(b) - getAvatarObjectModifiedTime(a)
+  )
+}
+
+const sortAvatarObjectsByOldest = (objects: ManagedAvatarObject[]) => {
+  return [...objects].toSorted(
+    (a, b) => getAvatarObjectModifiedTime(a) - getAvatarObjectModifiedTime(b)
+  )
+}
+
+const listManagedAvatarObjects = async (client: S3Client, bucket: string, userId: string) => {
+  const objects: ManagedAvatarObject[] = []
   let continuationToken: string | undefined
 
   while (true) {
@@ -207,11 +229,14 @@ const listManagedAvatarObjectKeys = async (client: S3Client, bucket: string, use
         continue
       }
 
-      objectKeys.push(object.Key)
+      objects.push({
+        lastModified: object.LastModified ?? null,
+        objectKey: object.Key
+      })
     }
 
     if (!response.IsTruncated || !response.NextContinuationToken) {
-      return objectKeys
+      return objects
     }
 
     continuationToken = response.NextContinuationToken
@@ -235,6 +260,24 @@ const deleteObjectKeys = async (client: S3Client, bucket: string, objectKeys: st
   )
 }
 
+const getAvatarObjectKeysToDeleteAfterUpload = (
+  existingObjects: ManagedAvatarObject[],
+  nextObjectKey: string
+) => {
+  const retainedExistingObjects = existingObjects.filter(
+    (object) => object.objectKey !== nextObjectKey
+  )
+  const overflowCount = retainedExistingObjects.length + 1 - avatarMaxStoredFiles
+
+  if (overflowCount <= 0) {
+    return []
+  }
+
+  return sortAvatarObjectsByOldest(retainedExistingObjects)
+    .slice(0, overflowCount)
+    .map((object) => object.objectKey)
+}
+
 const getAvatarStorageErrorDetails = (error: unknown) => {
   if (typeof error !== "object" || error === null) {
     return { error }
@@ -250,33 +293,6 @@ const getAvatarStorageErrorDetails = (error: unknown) => {
     name: errorRecord.name,
     requestId: metadata?.requestId
   }
-}
-
-const assertPublicAvatarUrlExists = async (imageUrl: string) => {
-  let response: Response
-  try {
-    response = await fetch(imageUrl, { method: "HEAD" })
-  } catch (error) {
-    logger.error({ error, imageUrl }, "Public avatar URL is not reachable")
-
-    throw new HTTPException(502, {
-      cause: error,
-      message: "Avatar upload failed."
-    })
-  }
-
-  if (response.ok) {
-    return
-  }
-
-  logger.error(
-    { imageUrl, status: response.status },
-    "Public avatar URL returned a non-success status"
-  )
-
-  throw new HTTPException(502, {
-    message: "Avatar upload failed."
-  })
 }
 
 export const validateAvatarImage = (image: unknown) => {
@@ -312,17 +328,20 @@ export const validateAvatarImage = (image: unknown) => {
 
 export const deleteAllAvatarFiles = async (userId: string) => {
   const { bucket, client } = getAvatarStorage()
-  const objectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
+  const objects = await listManagedAvatarObjects(client, bucket, userId)
+  const objectKeys = objects.map((object) => object.objectKey)
   await deleteObjectKeys(client, bucket, objectKeys)
 }
 
 export const listAvatarFiles = async (userId: string) => {
   const { bucket, client, publicBaseUrl } = getAvatarStorage()
-  const objectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
+  const objects = await listManagedAvatarObjects(client, bucket, userId)
 
-  return objectKeys.map((objectKey) => ({
-    imageUrl: getAvatarPublicUrl(objectKey, publicBaseUrl)
-  }))
+  return sortAvatarObjectsByNewest(objects)
+    .slice(0, avatarMaxStoredFiles)
+    .map((object) => ({
+      imageUrl: getAvatarPublicUrl(object.objectKey, publicBaseUrl)
+    }))
 }
 
 export const uploadAvatarFile = async (userId: string, file: File) => {
@@ -330,9 +349,6 @@ export const uploadAvatarFile = async (userId: string, file: File) => {
   const normalizedFile = await normalizeAvatarFile(file)
   const nextObjectKey = getAvatarObjectKey(userId, normalizedFile.hash)
   const nextImageUrl = getAvatarPublicUrl(nextObjectKey, publicBaseUrl)
-
-  const existingObjectKeys = await listManagedAvatarObjectKeys(client, bucket, userId)
-  const staleObjectKeys = existingObjectKeys.filter((objectKey) => objectKey !== nextObjectKey)
 
   try {
     await client.send(
@@ -356,7 +372,8 @@ export const uploadAvatarFile = async (userId: string, file: File) => {
     })
   }
 
-  await assertPublicAvatarUrlExists(nextImageUrl)
+  const existingObjects = await listManagedAvatarObjects(client, bucket, userId)
+  const staleObjectKeys = getAvatarObjectKeysToDeleteAfterUpload(existingObjects, nextObjectKey)
 
   await deleteObjectKeys(client, bucket, staleObjectKeys)
 
