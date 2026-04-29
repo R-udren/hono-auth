@@ -58,6 +58,9 @@ export const auth = betterAuth<BetterAuthOptions>({
   },
 
   user: {
+    changeEmail: {
+      enabled: false
+    },
     deleteUser: {
       enabled: true,
       afterDelete: async (currentUser: { id: string; image?: string | null }) => {
