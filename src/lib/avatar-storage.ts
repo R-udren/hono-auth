@@ -601,6 +601,7 @@ export const uploadAvatarFile = async (userId: string, file: File) => {
       new PutObjectCommand({
         Bucket: bucket,
         Key: nextObjectKey,
+        ACL: "public-read",
         Body: normalizedFile.body,
         ContentType: normalizedFile.contentType,
         CacheControl: "public, max-age=31536000, immutable"
