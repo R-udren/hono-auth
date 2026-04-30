@@ -3,6 +3,7 @@ import type { ErrorHandler } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 
 import { env } from "@/lib/env"
+import { logger } from "@/lib/logger"
 
 const INTERNAL_SERVER_ERROR = 500
 const CONFLICT = 409
@@ -74,6 +75,32 @@ const getClientMessage = (error: unknown, statusCode: ContentfulStatusCode, node
   return "Internal Server Error"
 }
 
+const getErrorLogDetails = (error: unknown) => {
+  if (typeof error !== "object" || error === null) {
+    return { error }
+  }
+
+  const errorRecord = error as Record<string, unknown>
+  const cause = errorRecord.cause
+
+  return {
+    cause:
+      typeof cause === "object" && cause !== null
+        ? {
+            code: (cause as Record<string, unknown>).code,
+            message: (cause as Record<string, unknown>).message,
+            name: (cause as Record<string, unknown>).name,
+            stack: (cause as Record<string, unknown>).stack
+          }
+        : cause,
+    code: errorRecord.code,
+    message: errorRecord.message,
+    name: errorRecord.name,
+    stack: errorRecord.stack,
+    status: errorRecord.status
+  }
+}
+
 const onError: ErrorHandler = (err, c) => {
   let statusCode: ContentfulStatusCode = getStatusCode(err)
 
@@ -86,6 +113,18 @@ const onError: ErrorHandler = (err, c) => {
 
   const nodeEnv = c.env?.NODE_ENV || env.NODE_ENV
   const message = getClientMessage(err, statusCode, nodeEnv)
+
+  if (statusCode >= INTERNAL_SERVER_ERROR) {
+    logger.error(
+      {
+        error: getErrorLogDetails(err),
+        method: c.req.method,
+        path: c.req.path,
+        statusCode
+      },
+      "Request failed"
+    )
+  }
 
   return c.json(
     {

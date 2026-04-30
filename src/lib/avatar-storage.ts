@@ -4,6 +4,7 @@ import { HTTPException } from "hono/http-exception"
 
 import {
   DeleteObjectCommand,
+  type ListObjectsV2CommandOutput,
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client
@@ -21,6 +22,7 @@ const avatarOutputMaxDimension = 512
 const avatarOutputQuality = 80
 const avatarHashLength = 12
 const avatarMaxStoredFiles = 3
+const avatarStorageErrorResponsePreviewBytes = 2048
 const bytesPerKibibyte = 1024
 const bytesPerMebibyte = bytesPerKibibyte * 1024
 const managedAvatarKeyPattern = new RegExp(
@@ -71,6 +73,21 @@ const avatarStorageClient = avatarStorageConfig
       }
     })
   : null
+
+if (avatarStorageConfig) {
+  logger.info(
+    {
+      bucket: avatarStorageConfig.bucket,
+      endpoint: avatarStorageConfig.endpoint,
+      forcePathStyle: env.AVATAR_S3_FORCE_PATH_STYLE,
+      publicBaseUrl: avatarStorageConfig.publicBaseUrl,
+      region: env.AVATAR_S3_REGION
+    },
+    "Avatar storage configured"
+  )
+} else {
+  logger.warn("Avatar storage not configured")
+}
 
 const parseUrl = (value: string) => {
   try {
@@ -280,13 +297,48 @@ const listManagedAvatarObjects = async (client: S3Client, bucket: string, userId
   let continuationToken: string | undefined
 
   while (true) {
-    const response = await client.send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: getAvatarObjectKeyPrefix(userId),
-        ContinuationToken: continuationToken
+    const prefix = getAvatarObjectKeyPrefix(userId)
+    let response: ListObjectsV2CommandOutput
+
+    try {
+      logger.debug(
+        { bucket, continuationToken: Boolean(continuationToken), prefix },
+        "Avatar storage list starting"
+      )
+
+      response = await client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken
+        })
+      )
+
+      logger.debug(
+        {
+          bucket,
+          isTruncated: response.IsTruncated,
+          keyCount: response.KeyCount,
+          metadata: getAvatarStorageResponseMetadata(response),
+          prefix
+        },
+        "Avatar storage list completed"
+      )
+    } catch (error) {
+      logger.error(
+        {
+          bucket,
+          prefix,
+          storageError: await getAvatarStorageErrorLogDetails(error)
+        },
+        "Avatar storage list failed"
+      )
+
+      throw new HTTPException(502, {
+        cause: error,
+        message: "Avatar storage list failed."
       })
-    )
+    }
 
     for (const object of response.Contents ?? []) {
       if (typeof object.Key !== "string") {
@@ -317,13 +369,32 @@ const deleteObjectKeys = async (client: S3Client, bucket: string, objectKeys: st
   }
 
   await Promise.all(
-    objectKeys.map((objectKey) =>
-      client.send(
-        new DeleteObjectCommand({
-          Bucket: bucket,
-          Key: objectKey
+    objectKeys.map(async (objectKey) =>
+      client
+        .send(
+          new DeleteObjectCommand({
+            Bucket: bucket,
+            Key: objectKey
+          })
+        )
+        .then((response) => {
+          logger.debug(
+            { bucket, metadata: getAvatarStorageResponseMetadata(response), objectKey },
+            "Avatar storage delete completed"
+          )
         })
-      )
+        .catch(async (error) => {
+          logger.error(
+            {
+              bucket,
+              objectKey,
+              storageError: await getAvatarStorageErrorLogDetails(error)
+            },
+            "Avatar storage delete failed"
+          )
+
+          throw error
+        })
     )
   )
 }
@@ -361,6 +432,98 @@ const getAvatarStorageErrorDetails = (error: unknown) => {
     name: errorRecord.name,
     requestId: metadata?.requestId
   }
+}
+
+const readAvatarStorageResponsePreview = async (body: unknown) => {
+  if (body == null) {
+    return undefined
+  }
+
+  try {
+    if (typeof body === "string") {
+      return body.slice(0, avatarStorageErrorResponsePreviewBytes)
+    }
+
+    if (body instanceof Uint8Array) {
+      return new TextDecoder().decode(body.slice(0, avatarStorageErrorResponsePreviewBytes))
+    }
+
+    if (body instanceof ArrayBuffer) {
+      return new TextDecoder().decode(body.slice(0, avatarStorageErrorResponsePreviewBytes))
+    }
+
+    if (typeof (body as { text?: unknown }).text === "function") {
+      const text = await (body as { text: () => Promise<string> }).text()
+      return text.slice(0, avatarStorageErrorResponsePreviewBytes)
+    }
+
+    if (
+      typeof (body as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === "function"
+    ) {
+      const chunks: Uint8Array[] = []
+      let byteLength = 0
+
+      for await (const chunk of body as AsyncIterable<Uint8Array | string>) {
+        const bytes = typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk
+        chunks.push(bytes)
+        byteLength += bytes.byteLength
+
+        if (byteLength >= avatarStorageErrorResponsePreviewBytes) {
+          break
+        }
+      }
+
+      const preview = new Uint8Array(Math.min(byteLength, avatarStorageErrorResponsePreviewBytes))
+      let offset = 0
+      for (const chunk of chunks) {
+        const remainingBytes = preview.byteLength - offset
+        if (remainingBytes <= 0) {
+          break
+        }
+
+        preview.set(chunk.slice(0, remainingBytes), offset)
+        offset += Math.min(chunk.byteLength, remainingBytes)
+      }
+
+      return new TextDecoder().decode(preview)
+    }
+  } catch (previewError) {
+    return `Failed to read response body preview: ${String(previewError)}`
+  }
+
+  return undefined
+}
+
+const getAvatarStorageRawResponseDetails = async (error: unknown) => {
+  if (typeof error !== "object" || error === null) {
+    return undefined
+  }
+
+  const response = (error as { $response?: unknown }).$response
+  if (typeof response !== "object" || response === null) {
+    return undefined
+  }
+
+  const responseRecord = response as Record<string, unknown>
+  return {
+    bodyPreview: await readAvatarStorageResponsePreview(responseRecord.body),
+    headers: responseRecord.headers,
+    reason: responseRecord.reason,
+    statusCode: responseRecord.statusCode
+  }
+}
+
+const getAvatarStorageErrorLogDetails = async (error: unknown) => ({
+  ...getAvatarStorageErrorDetails(error),
+  rawResponse: await getAvatarStorageRawResponseDetails(error)
+})
+
+const getAvatarStorageResponseMetadata = (response: unknown) => {
+  if (typeof response !== "object" || response === null) {
+    return undefined
+  }
+
+  return (response as { $metadata?: unknown }).$metadata
 }
 
 export const validateAvatarImage = (image: unknown) => {
@@ -419,7 +582,22 @@ export const uploadAvatarFile = async (userId: string, file: File) => {
   const nextImageUrl = getAvatarPublicUrl(nextObjectKey, publicBaseUrl)
 
   try {
-    await client.send(
+    logger.debug(
+      {
+        bucket,
+        contentLength: normalizedFile.body.byteLength,
+        contentType: normalizedFile.contentType,
+        endpoint: avatarStorageConfig?.endpoint,
+        forcePathStyle: env.AVATAR_S3_FORCE_PATH_STYLE,
+        objectKey: nextObjectKey,
+        publicBaseUrl: publicBaseUrl.toString(),
+        publicUrl: nextImageUrl,
+        region: env.AVATAR_S3_REGION
+      },
+      "Avatar upload S3 write starting"
+    )
+
+    const response = await client.send(
       new PutObjectCommand({
         Bucket: bucket,
         Key: nextObjectKey,
@@ -428,9 +606,26 @@ export const uploadAvatarFile = async (userId: string, file: File) => {
         CacheControl: "public, max-age=31536000, immutable"
       })
     )
+
+    logger.info(
+      {
+        bucket,
+        metadata: getAvatarStorageResponseMetadata(response),
+        objectKey: nextObjectKey,
+        publicUrl: nextImageUrl
+      },
+      "Avatar upload S3 write completed"
+    )
   } catch (error) {
     logger.error(
-      { bucket, objectKey: nextObjectKey, storageError: getAvatarStorageErrorDetails(error) },
+      {
+        bucket,
+        endpoint: avatarStorageConfig?.endpoint,
+        forcePathStyle: env.AVATAR_S3_FORCE_PATH_STYLE,
+        objectKey: nextObjectKey,
+        region: env.AVATAR_S3_REGION,
+        storageError: await getAvatarStorageErrorLogDetails(error)
+      },
       "Avatar upload S3 write failed"
     )
 
