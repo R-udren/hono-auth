@@ -4,7 +4,7 @@ import { db, getPool } from "./index"
 
 /**
  * Run database migrations.
- * Uses the existing pool from db/index.ts (which handles Azure auth).
+ * Uses the existing pool from db/index.ts.
  */
 export const runMigrations = async () => {
   console.log(`Running migrations...`)

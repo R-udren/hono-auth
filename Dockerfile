@@ -13,10 +13,10 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 # Copy source code
 COPY . .
 
-# Verify TypeScript compilation and prepare production files
+# Bundle the app and keep runtime-only assets needed by startup migrations.
 RUN bun build src/index.ts --target=bun --outdir=dist && \
     mkdir -p /prod && \
-    cp -r src drizzle drizzle.config.ts tsconfig.json /prod
+    cp -r dist drizzle /prod
 
 # Production stage
 FROM oven/bun:alpine
@@ -37,7 +37,7 @@ COPY package.json bun.lock ./
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --production --frozen-lockfile
 
-# Copy source code from builder
+# Copy bundled app and runtime assets from builder
 COPY --from=builder --chown=bunuser:nodejs /prod ./
 
 # Switch to non-root user
@@ -53,4 +53,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["bun", "run", "src/index.ts"]
+CMD ["bun", "run", "dist/index.js"]

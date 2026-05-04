@@ -4,13 +4,6 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Azure configuration (Defaults to false)
-      - AZURE_CLOUD=false
-      # - AZURE_CLIENT_ID=
-      # - AZURE_PG_HOST=
-      # - AZURE_PG_PORT=
-      # - AZURE_PG_DATABASE=
-
       # Auth configuration
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL}

@@ -5,7 +5,6 @@
     "dev": "bun run --hot src/index.ts",
     "db:generate": "bun drizzle-kit generate",
     "db:migrate": "bun drizzle-kit migrate",
-    "db:migrate:azure": "bun src/lib/db/migrate.ts",
     "db:push": "bun drizzle-kit push",
     "db:studio": "bun drizzle-kit studio",
     "lint": "oxlint",
@@ -14,25 +13,24 @@
     "format:check": "oxfmt --check"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1021.0",
-    "@azure/identity": "^4.13.1",
+    "@aws-sdk/client-s3": "^3.1041.0",
     "@napi-rs/image": "^1.12.0",
-    "better-auth": "^1.5.6",
+    "better-auth": "^1.6.9",
     "drizzle-orm": "^0.45.2",
-    "file-type": "^22.0.0",
-    "hono": "^4.12.9",
+    "file-type": "^22.0.1",
+    "hono": "^4.12.16",
     "hono-pino": "^0.10.3",
-    "jose": "^6.2.2",
+    "jose": "^6.2.3",
     "pg": "^8.20.0",
     "pino": "10.1.0",
-    "slugify": "^1.6.8",
+    "slugify": "^1.6.9",
     "uuidv7": "^1.2.1",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
-    "oxfmt": "^0.43.0",
-    "oxlint": "^1.58.0"
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0"
   }
 }
