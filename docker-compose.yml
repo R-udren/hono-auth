@@ -1,59 +1,43 @@
 services:
-  app:
+  hono-auth:
     build: .
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       # Auth configuration
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
       - BETTER_AUTH_TELEMETRY=0
-
-      # OAuth providers
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
-      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET}
-      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
-      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
 
       # Database
       # Connect to the postgres service defined below
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/better_auth}
+      - DATABASE_URL=${AUTH_DATABASE_URL:-postgresql://postgres:postgres@hono-auth-postgres:5432/better_auth}
       - RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}
-
-      # App configuration
-      - ORIGINS=${ORIGINS}
-      - COOKIE_DOMAIN=${COOKIE_DOMAIN}
-      - NODE_ENV=${NODE_ENV}
-      - EMAIL_PASSWORD_AUTH=${EMAIL_PASSWORD_AUTH}
-      - LINK_ACCOUNTS=${LINK_ACCOUNTS}
-      - ADMIN_EMAILS=${ADMIN_EMAILS}
 
       # Avatar storage
       - AVATAR_S3_ACCESS_KEY_ID=${AVATAR_S3_ACCESS_KEY_ID:-rustfsavatars}
       - AVATAR_S3_SECRET_ACCESS_KEY=${AVATAR_S3_SECRET_ACCESS_KEY:-rustfsavatarssecret}
       - AVATAR_S3_BUCKET=${AVATAR_S3_BUCKET:-avatars}
-      - AVATAR_S3_ENDPOINT=${AVATAR_S3_ENDPOINT:-http://rustfs:9000}
+      - AVATAR_S3_ENDPOINT=${AUTH_AVATAR_S3_ENDPOINT:-http://hono-auth-rustfs:9000}
       - AVATAR_S3_REGION=${AVATAR_S3_REGION:-us-east-1}
       - AVATAR_PUBLIC_BASE_URL=${AVATAR_PUBLIC_BASE_URL:-http://localhost:3910/avatars/}
       - AVATAR_S3_FORCE_PATH_STYLE=${AVATAR_S3_FORCE_PATH_STYLE:-true}
     depends_on:
-      postgres:
+      hono-auth-postgres:
         condition: service_healthy
-      rustfs-init:
+      hono-auth-rustfs-init:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  rustfs-permissions:
+  hono-auth-rustfs-permissions:
     image: alpine:3.21
     command: [sh, -c, "chown -R 10001:10001 /data /logs"]
     volumes:
-      - rustfs_data:/data
-      - rustfs_logs:/logs
+      - hono_auth_rustfs_data:/data
+      - hono_auth_rustfs_logs:/logs
     restart: no
 
-  rustfs:
+  hono-auth-rustfs:
     image: rustfs/rustfs:latest
     environment:
       - RUSTFS_VOLUMES=/data
@@ -64,14 +48,14 @@ services:
       - RUSTFS_SECRET_KEY=${AVATAR_S3_SECRET_ACCESS_KEY:-rustfsavatarssecret}
       - RUSTFS_REGION=${AVATAR_S3_REGION:-us-east-1}
     depends_on:
-      rustfs-permissions:
+      hono-auth-rustfs-permissions:
         condition: service_completed_successfully
     ports:
       - 127.0.0.1:3910:9000
       - 127.0.0.1:3911:9001
     volumes:
-      - rustfs_data:/data
-      - rustfs_logs:/logs
+      - hono_auth_rustfs_data:/data
+      - hono_auth_rustfs_logs:/logs
     restart: unless-stopped
     healthcheck:
       test:
@@ -83,13 +67,13 @@ services:
       retries: 10
       start_period: 20s
 
-  rustfs-init:
+  hono-auth-rustfs-init:
     image: minio/mc:latest
     entrypoint:
       - /bin/sh
       - -ceu
       - |
-        until mc alias set local http://rustfs:9000 "$$AVATAR_S3_ACCESS_KEY_ID" "$$AVATAR_S3_SECRET_ACCESS_KEY"; do
+        until mc alias set local http://hono-auth-rustfs:9000 "$$AVATAR_S3_ACCESS_KEY_ID" "$$AVATAR_S3_SECRET_ACCESS_KEY"; do
           sleep 2
         done
         mc mb --ignore-existing "local/$$AVATAR_S3_BUCKET"
@@ -99,11 +83,11 @@ services:
       - AVATAR_S3_SECRET_ACCESS_KEY=${AVATAR_S3_SECRET_ACCESS_KEY:-rustfsavatarssecret}
       - AVATAR_S3_BUCKET=${AVATAR_S3_BUCKET:-avatars}
     depends_on:
-      rustfs:
+      hono-auth-rustfs:
         condition: service_healthy
     restart: no
 
-  postgres:
+  hono-auth-postgres:
     image: postgres:18-alpine
     environment:
       - POSTGRES_USER=postgres
@@ -112,7 +96,7 @@ services:
     # ports:
     #   - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - hono_auth_postgres_data:/var/lib/postgresql
     restart: unless-stopped
     healthcheck:
       test: [CMD-SHELL, pg_isready -U postgres]
@@ -121,6 +105,6 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
-  rustfs_data:
-  rustfs_logs:
+  hono_auth_postgres_data:
+  hono_auth_rustfs_data:
+  hono_auth_rustfs_logs:
