@@ -6,6 +6,7 @@ import { and, eq, ne } from "drizzle-orm"
 
 import {
   getAuthUserState,
+  isAdminRole,
   syncAdminRole,
   syncPersistedUserAdminRoleById
 } from "@/lib/auth-admin-roles"
@@ -71,7 +72,8 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
         return {
           data: {
             ...preparedUser,
-            ...(syncedRole.changed || syncedRole.role !== null ? { role: syncedRole.role } : {})
+            ...(syncedRole.changed || syncedRole.role !== null ? { role: syncedRole.role } : {}),
+            ...(isAdminRole(syncedRole.role) ? { emailVerified: true } : {})
           }
         }
       }
@@ -132,7 +134,8 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
               : {}),
             ...(syncedRole && (hasProvidedRole || syncedRole.changed)
               ? { role: syncedRole.role }
-              : {})
+              : {}),
+            ...(syncedRole && isAdminRole(syncedRole.role) ? { emailVerified: true } : {})
           }
         }
       }

@@ -64,11 +64,14 @@ export const syncAdminRole = (user: { email?: string | null; role?: string | nul
   }
 }
 
+export const isAdminRole = (role?: string | null) => splitRoles(role).includes(ADMIN_ROLE)
+
 export const getAuthUserState = async (userId: string) => {
   const existingUsers = await db
     .select({
       id: authUser.id,
       email: authUser.email,
+      emailVerified: authUser.emailVerified,
       username: authUser.username,
       role: authUser.role,
       displayUsername: authUser.displayUsername
@@ -90,6 +93,7 @@ const getAuthUserAdminStateByEmail = async (email: string) => {
     .select({
       id: authUser.id,
       email: authUser.email,
+      emailVerified: authUser.emailVerified,
       username: authUser.username,
       role: authUser.role,
       displayUsername: authUser.displayUsername
@@ -122,14 +126,22 @@ export const syncPersistedUserAdminRoleById = async (userId: string) => {
 export const syncPersistedUserAdminRole = async (user: {
   id: string
   email?: string | null
+  emailVerified?: boolean | null
   role?: string | null
 }) => {
   const syncedRole = syncAdminRole(user)
-  if (!syncedRole.changed) {
+  const shouldVerifyEmail = isAdminRole(syncedRole.role) && !user.emailVerified
+  if (!syncedRole.changed && !shouldVerifyEmail) {
     return syncedRole
   }
 
-  await db.update(authUser).set({ role: syncedRole.role }).where(eq(authUser.id, user.id))
+  await db
+    .update(authUser)
+    .set({
+      ...(syncedRole.changed ? { role: syncedRole.role } : {}),
+      ...(shouldVerifyEmail ? { emailVerified: true } : {})
+    })
+    .where(eq(authUser.id, user.id))
 
   return syncedRole
 }

@@ -106,8 +106,8 @@ const baseEnvSchema = z.object({
     .transform((v) => v === "true"),
 
   // App configuration
-  ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
-  COOKIE_DOMAIN: z.string().default("app.example.com"),
+  ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000,http://localhost:8080"),
+  COOKIE_DOMAIN: z.string().default("localhost"),
   NODE_ENV: z.enum(["development", "production"]).default("development"),
   EMAIL_PASSWORD_AUTH: z.string().default("true"),
   LINK_ACCOUNTS: z.string().default("true"),
