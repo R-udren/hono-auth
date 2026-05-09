@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto"
+import { randomBytes } from "node:crypto"
 
 import { HTTPException } from "hono/http-exception"
 
@@ -161,6 +161,33 @@ const getAvatarPublicUrl = (objectKey: string, publicBaseUrl: URL) => {
 
 const isManagedAvatarObjectKey = (objectKey: string) => managedAvatarKeyPattern.test(objectKey)
 
+const getManagedAvatarObjectKeyFromPublicUrl = (
+  userId: string,
+  imageUrl: string,
+  publicBaseUrl: URL
+) => {
+  const avatarUrl = parseUrl(imageUrl)
+  if (!avatarUrl || avatarUrl.origin !== publicBaseUrl.origin) {
+    return null
+  }
+
+  const basePath = ensureTrailingSlash(publicBaseUrl.pathname)
+  if (!avatarUrl.pathname.startsWith(basePath)) {
+    return null
+  }
+
+  const objectKey = avatarUrl.pathname.slice(basePath.length)
+  if (!objectKey.startsWith(getAvatarObjectKeyPrefix(userId))) {
+    return null
+  }
+
+  if (!isManagedAvatarObjectKey(objectKey)) {
+    return null
+  }
+
+  return objectKey
+}
+
 const getAvatarStorage = () => {
   if (!avatarStorageConfig || !avatarStorageClient || !avatarPublicBaseUrl) {
     throw new HTTPException(501, {
@@ -206,8 +233,8 @@ const assertAvatarDimensions = (width: number, height: number) => {
   }
 }
 
-const hashAvatarBytes = (bytes: Uint8Array) => {
-  return createHash("sha256").update(bytes).digest("hex").slice(0, avatarHashLength)
+const createAvatarObjectHash = () => {
+  return randomBytes(avatarHashLength / 2).toString("hex")
 }
 
 const normalizeAvatarFile = async (file: File) => {
@@ -272,7 +299,7 @@ const normalizeAvatarFile = async (file: File) => {
   return {
     body: outputBytes,
     contentType: avatarOutputMimeType,
-    hash: hashAvatarBytes(outputBytes)
+    hash: createAvatarObjectHash()
   }
 }
 
@@ -562,6 +589,18 @@ export const deleteAllAvatarFiles = async (userId: string) => {
   const objects = await listManagedAvatarObjects(client, bucket, userId)
   const objectKeys = objects.map((object) => object.objectKey)
   await deleteObjectKeys(client, bucket, objectKeys)
+}
+
+export const deleteAvatarFile = async (userId: string, imageUrl: string) => {
+  const { bucket, client, publicBaseUrl } = getAvatarStorage()
+  const objectKey = getManagedAvatarObjectKeyFromPublicUrl(userId, imageUrl, publicBaseUrl)
+
+  if (!objectKey) {
+    logger.debug({ imageUrl, userId }, "Avatar storage delete skipped for unmanaged URL")
+    return
+  }
+
+  await deleteObjectKeys(client, bucket, [objectKey])
 }
 
 export const listAvatarFiles = async (userId: string) => {

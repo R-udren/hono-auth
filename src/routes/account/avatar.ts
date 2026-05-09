@@ -7,10 +7,17 @@ import {
   createAvatarUploadRequestLimitError,
   avatarUploadRequestLimitBytes,
   deleteAllAvatarFiles,
+  deleteAvatarFile,
   listAvatarFiles,
   uploadAvatarFile
 } from "@/lib/avatar-storage"
 import { resolveAuthenticatedRequest } from "@/lib/request-auth"
+
+type DeleteAvatarRequestBody = {
+  imageUrl?: unknown
+}
+
+const deleteAvatarJsonContentType = "application/json"
 
 const assertUploadContentLength = (contentLengthHeader: string | undefined) => {
   if (!contentLengthHeader) {
@@ -30,6 +37,44 @@ const assertUploadContentLength = (contentLengthHeader: string | undefined) => {
       source: "content-length"
     })
   }
+}
+
+const readDeleteAvatarImageUrl = async (request: Request) => {
+  if (request.body === null || request.headers.get("content-length") === "0") {
+    return null
+  }
+
+  const contentType = request.headers.get("content-type")?.toLowerCase()
+  if (!contentType?.includes(deleteAvatarJsonContentType)) {
+    throw new HTTPException(400, {
+      message: "Avatar delete request body must use application/json."
+    })
+  }
+
+  let body: unknown
+
+  try {
+    body = await request.json()
+  } catch {
+    throw new HTTPException(400, {
+      message: "Avatar delete request body must be valid JSON."
+    })
+  }
+
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    throw new HTTPException(400, {
+      message: "Avatar delete request body must include an image URL."
+    })
+  }
+
+  const imageUrl = (body as DeleteAvatarRequestBody).imageUrl
+  if (typeof imageUrl !== "string" || !imageUrl.trim()) {
+    throw new HTTPException(400, {
+      message: "Avatar delete image URL must be a non-empty string."
+    })
+  }
+
+  return imageUrl.trim()
 }
 
 export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
@@ -75,7 +120,13 @@ export const registerAvatarRoutes = (app: Hono<AppBindings>) => {
 
   app.delete("/api/account/avatar", async (c) => {
     const { userId } = await resolveAuthenticatedRequest(c.req.raw.headers)
-    await deleteAllAvatarFiles(userId)
+    const imageUrl = await readDeleteAvatarImageUrl(c.req.raw)
+
+    if (imageUrl) {
+      await deleteAvatarFile(userId, imageUrl)
+    } else {
+      await deleteAllAvatarFiles(userId)
+    }
 
     return c.json({ success: true })
   })
