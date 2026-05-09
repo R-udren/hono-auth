@@ -3,7 +3,7 @@ import { HTTPException } from "hono/http-exception"
 import { createRemoteJWKSet, jwtVerify } from "jose"
 
 import { auth } from "@/lib/auth"
-import { syncPersistedUserAdminRoleById } from "@/lib/auth-admin-roles"
+import { syncPersistedUserAdminRoleById } from "@/lib/auth-admin"
 import { env } from "@/lib/env"
 import { logger } from "@/lib/logger"
 

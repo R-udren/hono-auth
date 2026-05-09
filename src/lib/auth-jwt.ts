@@ -2,7 +2,7 @@ import type { BetterAuthPlugin } from "better-auth"
 import { createAuthMiddleware } from "better-auth/api"
 import { getJwtToken } from "better-auth/plugins"
 
-import { getAuthUserState } from "@/lib/auth-admin-roles"
+import { getAuthUserState } from "@/lib/auth-admin"
 import { env } from "@/lib/env"
 
 export const jwtPluginOptions = {

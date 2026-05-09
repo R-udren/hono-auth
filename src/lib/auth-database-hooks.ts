@@ -9,7 +9,7 @@ import {
   isAdminRole,
   syncAdminRole,
   syncPersistedUserAdminRoleById
-} from "@/lib/auth-admin-roles"
+} from "@/lib/auth-admin"
 import { prepareAuthUserCreate } from "@/lib/auth-user-creation"
 import { validateAvatarImage } from "@/lib/avatar-storage"
 import { db } from "@/lib/db"
