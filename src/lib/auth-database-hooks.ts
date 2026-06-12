@@ -43,6 +43,8 @@ type UpdateUserInput = Partial<{
 }> &
   Record<string, unknown>
 
+const oauthProviderIds = new Set(["google", "discord", "github"])
+
 const getSessionUserId = (context: GenericEndpointContext | null): string | undefined => {
   if (!context || typeof context !== "object") {
     return undefined
@@ -149,6 +151,20 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
         return {
           data: nextSession
         }
+      }
+    }
+  },
+  account: {
+    create: {
+      after: async (nextAccount) => {
+        if (!oauthProviderIds.has(nextAccount.providerId)) {
+          return
+        }
+
+        await db
+          .update(authUser)
+          .set({ emailVerified: true })
+          .where(and(eq(authUser.id, nextAccount.userId), eq(authUser.emailVerified, false)))
       }
     }
   }
