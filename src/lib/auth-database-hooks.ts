@@ -94,8 +94,10 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
           throw error
         }
 
-        if (typeof nextUser.username === "string" && nextUser.username.trim()) {
-          const requestedUsername = nextUser.username.trim()
+        const requestedUsername =
+          typeof nextUser.username === "string" ? nextUser.username.trim() : null
+
+        if (requestedUsername) {
           const currentUserId =
             typeof nextUser.id === "string" && nextUser.id ? nextUser.id : getSessionUserId(context)
 
@@ -131,8 +133,8 @@ export const authDatabaseHooks: BetterAuthOptions["databaseHooks"] = {
         return {
           data: {
             ...nextUser,
-            ...(typeof nextUser.username === "string" && nextUser.username.trim()
-              ? { username: nextUser.username.trim() }
+            ...(requestedUsername
+              ? { username: requestedUsername, displayUsername: requestedUsername }
               : {}),
             ...(syncedRole && (hasProvidedRole || syncedRole.changed)
               ? { role: syncedRole.role }
