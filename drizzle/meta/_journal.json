@@ -8,6 +8,13 @@
       "when": 1759127861358,
       "tag": "0000_mean_leo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784501795041,
+      "tag": "0001_nebulous_golden_guardian",
+      "breakpoints": true
     }
   ]
 }

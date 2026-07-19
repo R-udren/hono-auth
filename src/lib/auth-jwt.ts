@@ -46,6 +46,13 @@ export const authSessionSyncHook = {
           return true
         },
         handler: createAuthMiddleware(async (ctx) => {
+          if (
+            ["/sign-in/email", "/sign-in/username", "/sign-in/phone-number"].includes(ctx.path) &&
+            !ctx.context.newSession
+          ) {
+            return
+          }
+
           const session = ctx.context.newSession ?? ctx.context.session
           if (!session?.session) {
             return

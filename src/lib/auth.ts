@@ -2,7 +2,7 @@ import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
 import { localization, type PartialErrorCodesType } from "better-auth-localization"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { admin, jwt, openAPI, username } from "better-auth/plugins"
+import { admin, jwt, openAPI, twoFactor, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
 
 import { authDatabaseHooks } from "@/lib/auth-database-hooks"
@@ -17,15 +17,19 @@ const trustedOrigins = env.ORIGINS.split(",")
   .filter(Boolean)
 
 const russianAuthTranslations = {
+  ACCOUNT_TEMPORARILY_LOCKED:
+    "Аккаунт временно заблокирован из-за слишком большого количества неудачных попыток. Попробуйте позже.",
   BANNED_USER: "Ваш доступ к приложению заблокирован",
   INVALID_USERNAME: "Некорректное имя пользователя",
   INVALID_USERNAME_OR_PASSWORD: "Неверное имя пользователя или пароль",
   PASSWORD_COMPROMISED: "Этот пароль скомпрометирован. Выберите другой.",
+  RESET_PASSWORD_DISABLED: "Сброс пароля не включен",
   UNEXPECTED_ERROR: "Непредвиденная ошибка",
   USERNAME_IS_ALREADY_TAKEN: "Имя пользователя уже занято. Попробуйте другое.",
   USERNAME_TOO_LONG: "Имя пользователя слишком длинное",
   USERNAME_TOO_SHORT: "Имя пользователя слишком короткое"
-} satisfies PartialErrorCodesType
+} satisfies PartialErrorCodesType &
+  Record<"ACCOUNT_TEMPORARILY_LOCKED" | "RESET_PASSWORD_DISABLED", string>
 
 const socialProviders: BetterAuthOptions["socialProviders"] = {}
 
@@ -92,6 +96,7 @@ export const auth = betterAuth<BetterAuthOptions>({
     username(),
     admin(),
     jwt(jwtPluginOptions),
+    twoFactor({ issuer: "RChecker" }),
     authSessionSyncHook,
     openAPI(),
     localization({
