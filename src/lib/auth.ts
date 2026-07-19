@@ -1,5 +1,6 @@
 import type { BetterAuthOptions } from "better-auth"
 import { betterAuth } from "better-auth"
+import { localization, type PartialErrorCodesType } from "better-auth-localization"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { admin, jwt, openAPI, username } from "better-auth/plugins"
 import { uuidv7 } from "uuidv7"
@@ -14,6 +15,17 @@ import { logger } from "@/lib/logger"
 const trustedOrigins = env.ORIGINS.split(",")
   .map((origin) => origin.trim())
   .filter(Boolean)
+
+const russianAuthTranslations = {
+  BANNED_USER: "Ваш доступ к приложению заблокирован",
+  INVALID_USERNAME: "Некорректное имя пользователя",
+  INVALID_USERNAME_OR_PASSWORD: "Неверное имя пользователя или пароль",
+  PASSWORD_COMPROMISED: "Этот пароль скомпрометирован. Выберите другой.",
+  UNEXPECTED_ERROR: "Непредвиденная ошибка",
+  USERNAME_IS_ALREADY_TAKEN: "Имя пользователя уже занято. Попробуйте другое.",
+  USERNAME_TOO_LONG: "Имя пользователя слишком длинное",
+  USERNAME_TOO_SHORT: "Имя пользователя слишком короткое"
+} satisfies PartialErrorCodesType
 
 const socialProviders: BetterAuthOptions["socialProviders"] = {}
 
@@ -76,7 +88,20 @@ export const auth = betterAuth<BetterAuthOptions>({
     }
   },
 
-  plugins: [username(), admin(), jwt(jwtPluginOptions), authSessionSyncHook, openAPI()],
+  plugins: [
+    username(),
+    admin(),
+    jwt(jwtPluginOptions),
+    authSessionSyncHook,
+    openAPI(),
+    localization({
+      defaultLocale: "default",
+      fallbackLocale: "default",
+      getLocale: (request) =>
+        request?.headers.get("accept-language")?.startsWith("ru") ? "ru-RU" : "default",
+      translations: { "ru-RU": russianAuthTranslations }
+    })
+  ],
 
   socialProviders,
 
